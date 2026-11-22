@@ -5,3 +5,4 @@ reportlab>=4,<5
 mutagen>=1.47,<2
 google-api-python-client>=2.160,<3
 google-auth-oauthlib>=1.2,<2
+gunicorn>=23,<24
