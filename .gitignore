@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+db.sqlite3
+.idea/
+staticfiles/
+.env
+private_media/
+.library-cloud/
+credentials.json
+token.json
+.env

@@ -1,0 +1,14 @@
+{% extends 'library/base.html' %}{% block content %}<div class="heading"><div><h1>{% if quiz %}Testni tahrirlash{% else %}Yangi test yaratish{% endif %}</h1><p>Kitob bilan bog‘lang, test savollarini import qiling yoki AI yordamida yarating.</p></div><span class="badge {% if ai %}ok{% else %}late{% endif %}">{% if ai %}Gemini sozlangan{% else %}AI kaliti sozlanmagan{% endif %}</span></div>{% if error %}<div class="message error">{{ error }}</div>{% endif %}<div class="quiz-editor"><section class="panel"><form method="post">{% csrf_token %}<label>Sarlavha<input required maxlength="200" name="title" value="{{ title }}"></label><label>Kitob<select name="book"><option value="">Umumiy test</option>{% for b in books %}<option value="{{ b.pk }}" {% if b.pk|stringformat:"s" == book_id %}selected{% endif %}>{{ b.title }}</option>{% endfor %}</select></label><label>Tavsif<textarea name="description" rows="2" maxlength="2000">{{ description }}</textarea></label><label>Test savollari yoki o‘quv materiali<textarea name="source" required rows="16" maxlength="60000" placeholder="Savollar yoki kitob bo‘yicha o‘quv matnini kiriting">{{ source }}</textarea></label><div class="panel ai-box"><h3>AI yordamida test yaratish</h3><p>Matn Google Gemini’ga yuboriladi. Shaxsiy yoki maxfiy ma’lumot kiritmang.</p><label>Savollar soni<input name="count" type="number" min="1" max="30" value="10"></label><label class="consent"><input type="checkbox" name="consent" value="1"> Matnni Gemini xizmatiga yuborishga roziman.</label><button name="action" value="generate" {% if not ai %}disabled{% endif %}>AI orqali savollar yaratish</button></div><button class="primary" name="action" value="save">Qoralama saqlash</button></form></section><aside class="panel format-help"><h2>Test import formati</h2><p>AI kalitisiz quyidagi formatda savollarni tayyorlang yoki ChatGPT’dan shu formatda javob oling:</p><pre>1. DNS vazifasi nima?
+A) Nomni IP ga bog‘lash
+B) Faylni siqish
+C) Tok berish
+D) Matnni o‘chirish
+Javob: A
+Izoh: DNS nomni yechadi.
+
+2. Keyingi savol?
+A) Variant 1
+B) Variant 2
+C) Variant 3
+D) Variant 4
+Javob: B</pre><p>JSON format ham qabul qilinadi. AI yaratgan savollar qoralama sifatida tekshiriladi; faqat siz nashr qilganingizda talabalar ko‘radi.</p></aside></div>{% endblock %}
