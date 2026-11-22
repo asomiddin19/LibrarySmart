@@ -63,3 +63,16 @@ if RAILWAY_VOLUME:
     DATABASES["default"]["NAME"] = DATA_DIR / "db.sqlite3"
     MEDIA_ROOT = DATA_DIR / "private_media"
     DRIVE_CONFIG_DIR = DATA_DIR / ".library-cloud"
+
+
+
+RAILWAY_DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN")
+
+if RAILWAY_DOMAIN:
+    ALLOWED_HOSTS.append(RAILWAY_DOMAIN)
+    CSRF_TRUSTED_ORIGINS = [f"https://{RAILWAY_DOMAIN}"]
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+MIDDLEWARE.insert(
+    1, "whitenoise.middleware.WhiteNoiseMiddleware"
+)
