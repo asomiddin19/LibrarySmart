@@ -1,10 +1,4 @@
-# Library Smart 6.0 AI — IT-t 1-jamoa
 
-## 5.0 dan xavfsiz yangilash
-
-Eski serverni Ctrl+C bilan to‘xtating. Yangi ZIP alohida LibrarySmart_AI papkasiga ochilsin. **Eski papkani o‘chirmang.** Downloads ichida quyidagilarni bajaring:
-
-```bash
 cd ~/Downloads
 cp -a LibrarySmart_Cloud/db.sqlite3 LibrarySmart_AI/
 cp -a LibrarySmart_Cloud/private_media LibrarySmart_AI/
