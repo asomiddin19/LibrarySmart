@@ -65,12 +65,15 @@ Staging xizmat uchun zarur o'zgaruvchilar:
 - `DJANGO_ALLOWED_HOSTS` — staging host
 - `RAILWAY_PUBLIC_DOMAIN` — Railway domeni
 - `RAILWAY_VOLUME_MOUNT_PATH` — agar SQLite/media volume ishlatilsa
-- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_PORT` — agar PostgreSQL tanlansa
+- `DATABASE_URL` — Railway PostgreSQL servisi bergan URL; avtomatik aniqlanadi (tavsiya qilinadi)
+- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_PORT` — eski alternativa
 - `GEMINI_API_KEY` — Gemini xizmatini yoqish uchun
 - `GOOGLE_OAUTH_CLIENT_IDS` — ruxsat etilgan Google OAuth Web/Android/iOS client ID'lari
 - `GOOGLE_WEB_CLIENT_ID` — web Google tugmasi
 
 `GOOGLE_OAUTH_CLIENT_IDS` faqat Google OAuth identifikatorlari, **client secret yoki foydalanuvchi paroli emas**.
+
+**Xavfsiz ishga tushish:** Docker image standart holatda `DJANGO_DEBUG=0` bilan ishlaydi. `DJANGO_SECRET_KEY` majburiy. SQLite uchun `RAILWAY_VOLUME_MOUNT_PATH` talab qilinadi, aks holda foydalanuvchi va kitob ma'lumotlari deployda yo'qolmasligi uchun server ishga tushmaydi. Railway PostgreSQL bergan `DATABASE_URL` bo'lsa doimiy PostgreSQL bazasi ishlatiladi.
 
 Railway start command namunasi: `python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT`. Bir nechta replica ishlatilsa, migratsiya ishini alohida release bosqichida bajaring.
 
