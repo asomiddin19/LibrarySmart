@@ -172,9 +172,24 @@ class Home extends StatefulWidget {
   @override State<Home> createState() => _HomeState();
 }
 class _HomeState extends State<Home> {
+  final search = TextEditingController();
+  int page = 1;
   late Future<dynamic> books;
-  @override void initState() { super.initState(); books = widget.api.request('books/'); }
-  @override Widget build(BuildContext context) => Scaffold(
+
+  @override
+  void initState() { super.initState(); reload(); }
+  @override
+  void dispose() { search.dispose(); super.dispose(); }
+  void reload() {
+    final query = Uri.encodeQueryComponent(search.text.trim());
+    books = widget.api.request('books/?page=$page&q=$query');
+  }
+  void loadPage(int target) {
+    setState(() { page = target; reload(); });
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Library Smart Digital'), actions: [
       IconButton(icon: const Icon(Icons.person), tooltip: 'Profil',
         onPressed: () => Navigator.push(context, MaterialPageRoute(
@@ -200,25 +215,46 @@ class _HomeState extends State<Home> {
           builder: (_) => QuizListPage(api: widget.api.request)))),
       IconButton(icon: const Icon(Icons.logout), onPressed: widget.onLogout),
     ]),
-    body: FutureBuilder<dynamic>(future: books, builder: (context, snapshot) {
-      if (snapshot.hasError) return Center(child: Text('Xato: ${snapshot.error}'));
-      if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-      final entries = snapshot.data['results'] as List<dynamic>;
-      return RefreshIndicator(onRefresh: () async {
-        setState(() => books = widget.api.request('books/')); await books;
-      }, child: ListView(children: [
-        const Padding(padding: EdgeInsets.all(16), child: Text('Elektron kitoblar',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold))),
-        for (final item in entries) ListTile(
-          title: Text(item['title'] ?? ''),
-          subtitle: Text('${item['author']} • ${item['category']}'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => Navigator.push(context, MaterialPageRoute(
-            builder: (_) => BookDetail(api: widget.api, book: item))),
-        ),
-        if (entries.isEmpty) const Center(child: Text('Kitob topilmadi.')),
-      ]));
-    }),
+    body: Column(children: [
+      Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+        child: TextField(controller: search, textInputAction: TextInputAction.search,
+          onSubmitted: (_) => loadPage(1),
+          decoration: InputDecoration(labelText: 'Kitob yoki muallifni qidirish',
+            prefixIcon: const Icon(Icons.search),
+            suffixIcon: IconButton(icon: const Icon(Icons.arrow_forward),
+              onPressed: () => loadPage(1)),
+            border: const OutlineInputBorder()),
+        )),
+      Expanded(child: FutureBuilder<dynamic>(future: books, builder: (context, snapshot) {
+        if (snapshot.hasError) return Center(child: Text('Xato: ${snapshot.error}'));
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        final data = snapshot.data;
+        final entries = data['results'] as List<dynamic>;
+        final count = data['count'] as int;
+        return RefreshIndicator(onRefresh: () async {
+          setState(reload);
+          await books;
+        }, child: ListView(children: [
+          Padding(padding: const EdgeInsets.all(16), child: Text('Elektron kitoblar ($count)',
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold))),
+          for (final item in entries) ListTile(
+            title: Text(item['title'] ?? ''),
+            subtitle: Text('${item['author']} • ${item['category']}'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.push(context, MaterialPageRoute(
+              builder: (_) => BookDetail(api: widget.api, book: item))),
+          ),
+          if (entries.isEmpty) const ListTile(title: Text('Kitob topilmadi.')),
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            TextButton(onPressed: page > 1 ? () => loadPage(page - 1) : null,
+              child: const Text('Oldingi')),
+            Text('$page / ${(count / 20).ceil().clamp(1, 100000)}'),
+            TextButton(onPressed: page * 20 < count ? () => loadPage(page + 1) : null,
+              child: const Text('Keyingi')),
+          ]),
+        ]));
+      })),
+    ]),
   );
 }
 class BookDetail extends StatefulWidget {
