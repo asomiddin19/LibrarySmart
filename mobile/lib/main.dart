@@ -22,11 +22,12 @@ class Api {
   String googleWebClientId = const String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
   String? cookie;
   String? csrf;
+  static const requestTimeout = Duration(seconds: 25);
   Future<void> init() async {
     baseUrl = await storage.read(key: 'server_url') ?? server;
     cookie = await storage.read(key: 'session');
     try {
-      final oauth = await client.get(Uri.parse('$baseUrl/api/v1/auth/google/config/'));
+      final oauth = await client.get(Uri.parse('$baseUrl/api/v1/auth/google/config/')).timeout(requestTimeout);
       if (oauth.statusCode == 200) {
         final config = jsonDecode(oauth.body);
         if (config is Map && config['enabled'] == true && config['web_client_id'] is String) {
@@ -40,7 +41,10 @@ class Api {
     } catch (_) {
       googleWebClientId = '';
     }
-    final res = await client.get(Uri.parse('$baseUrl/api/v1/auth/csrf/'));
+    final res = await client.get(Uri.parse('$baseUrl/api/v1/auth/csrf/')).timeout(requestTimeout);
+    if (res.statusCode != 200) {
+      throw Exception('Serverga ulanish xatosi: HTTP ${res.statusCode}');
+    }
     final raw = res.headers['set-cookie'];
     if (raw != null && raw.contains('csrftoken=')) {
       final match = RegExp(r'csrftoken=([^;]+)').firstMatch(raw);
@@ -55,7 +59,7 @@ class Api {
       throw const FormatException('Faqat HTTPS server domenini kiriting.');
     }
     final candidate = uri.origin;
-    final response = await client.get(Uri.parse('$candidate/api/v1/health/'));
+    final response = await client.get(Uri.parse('$candidate/api/v1/health/')).timeout(requestTimeout);
     if (response.statusCode != 200) {
       throw FormatException('Bu manzilda Library Smart API mavjud emas (HTTP ${response.statusCode}).');
     }
@@ -75,7 +79,7 @@ class Api {
   }
   Future<Uint8List> epubBytes(int bookId) async {
     final response = await client.get(Uri.parse('$baseUrl/api/v1/books/$bookId/epub/'),
-      headers: {if (cookie != null) 'Cookie': cookie!});
+      headers: {if (cookie != null) 'Cookie': cookie!}).timeout(const Duration(seconds: 60));
     if (response.statusCode != 200 || !response.headers['content-type'].toString().contains('epub')) {
       throw Exception('EPUB yuklab olinmadi: HTTP ${response.statusCode}');
     }
@@ -83,7 +87,7 @@ class Api {
   }
   Future<Uint8List> pdfBytes(int bookId) async {
     final headers = <String, String>{if (cookie != null) 'Cookie': cookie!};
-    final response = await client.get(Uri.parse('$baseUrl/api/v1/books/$bookId/pdf/'), headers: headers);
+    final response = await client.get(Uri.parse('$baseUrl/api/v1/books/$bookId/pdf/'), headers: headers).timeout(const Duration(seconds: 60));
     if (response.statusCode != 200 || !response.headers['content-type'].toString().contains('pdf')) {
       throw Exception('PDF yuklab olinmadi: HTTP ${response.statusCode}');
     }
@@ -101,8 +105,8 @@ class Api {
     if (body != null) headers['Content-Type'] = 'application/json';
     final response = await client.send(http.Request(method, uri)
       ..headers.addAll(headers)
-      ..body = body == null ? '' : jsonEncode(body));
-    final full = await http.Response.fromStream(response);
+      ..body = body == null ? '' : jsonEncode(body)).timeout(requestTimeout);
+    final full = await http.Response.fromStream(response).timeout(requestTimeout);
     final setCookie = full.headers['set-cookie'];
     if (setCookie != null && setCookie.contains('csrftoken=')) {
       csrf = RegExp(r'csrftoken=([^;]+)').firstMatch(setCookie)?.group(1) ?? csrf;
@@ -256,7 +260,7 @@ class _LoginState extends State<Login> {
   }
   @override Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Library Smart — Kirish')),
-    body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 440),
+    body: SafeArea(child: Center(child: SingleChildScrollView(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 440),
       child: Padding(padding: const EdgeInsets.all(24), child: Column(
         mainAxisSize: MainAxisSize.min, children: [
           const Icon(Icons.menu_book, size: 72), const SizedBox(height: 20),
@@ -281,7 +285,7 @@ class _LoginState extends State<Login> {
             icon: const Icon(Icons.account_circle), label: const Text('Google orqali kirish')),
           if (widget.api.googleWebClientId.isEmpty)
             const Text('Google orqali kirish hozircha faollashtirilmagan.'),
-        ])))));
+        ])))))));
 }
 
 class Home extends StatefulWidget {
@@ -344,7 +348,18 @@ class _HomeState extends State<Home> {
             border: const OutlineInputBorder()),
         )),
       Expanded(child: FutureBuilder<dynamic>(future: books, builder: (context, snapshot) {
-        if (snapshot.hasError) return Center(child: Text('Xato: ${snapshot.error}'));
+        if (snapshot.hasError) return Center(child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.wifi_off, size: 40),
+            const SizedBox(height: 12),
+            Text('Kitoblarni yuklab bo‘lmadi: ${snapshot.error}', textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: () => setState(reload),
+              icon: const Icon(Icons.refresh), label: const Text('Qayta urinish')),
+          ]),
+        ));
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         final data = snapshot.data;
         final entries = data['results'] as List<dynamic>;
