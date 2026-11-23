@@ -165,7 +165,7 @@ class _HomeState extends State<Home> {
     appBar: AppBar(title: const Text('Library Smart Digital'), actions: [
       IconButton(icon: const Icon(Icons.quiz), tooltip: 'Testlar',
         onPressed: () => Navigator.push(context, MaterialPageRoute(
-          builder: (_) => QuizListPage(api: widget.api.request))),
+          builder: (_) => QuizListPage(api: widget.api.request)))),
       IconButton(icon: const Icon(Icons.logout), onPressed: widget.onLogout),
     ]),
     body: FutureBuilder<dynamic>(future: books, builder: (context, snapshot) {
