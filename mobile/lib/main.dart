@@ -13,7 +13,7 @@ import 'learning_pages.dart';
 import 'library_pages.dart';
 
 const server = String.fromEnvironment('LIBRARY_API_BASE',
-    defaultValue: 'https://librarysmart-production.up.railway.app');
+    defaultValue: 'https://librarysmart-api-staging.up.railway.app');
 
 class Api {
   final client = http.Client();
@@ -260,9 +260,11 @@ class _LoginState extends State<Login> {
           TextButton(onPressed: busy ? null : register,
             child: const Text('Yangi akkaunt yaratish (email + parol)')),
           const SizedBox(height: 8),
+          if (const String.fromEnvironment('GOOGLE_WEB_CLIENT_ID').isNotEmpty)
           OutlinedButton.icon(onPressed: busy ? null : googleLogin,
             icon: const Icon(Icons.account_circle), label: const Text('Google orqali kirish')),
-          const Text('Google Cloud OAuth Client ID sozlanishi kerak.'),
+          if (const String.fromEnvironment('GOOGLE_WEB_CLIENT_ID').isEmpty)
+            const Text('Google orqali kirish hozircha faollashtirilmagan.'),
         ])))));
 }
 
