@@ -1,0 +1,18 @@
+from django.urls import path
+from . import mobile_api
+
+urlpatterns = [
+    path("auth/csrf/", mobile_api.csrf, name="mobile_csrf"),
+    path("auth/login/", mobile_api.signin, name="mobile_login"),
+    path("auth/logout/", mobile_api.signout, name="mobile_logout"),
+    path("me/", mobile_api.me, name="mobile_me"),
+    path("books/", mobile_api.books, name="mobile_books"),
+    path("books/<int:pk>/", mobile_api.book_detail, name="mobile_book_detail"),
+    path("books/<int:pk>/reading/", mobile_api.reading, name="mobile_reading"),
+    path("books/<int:pk>/pdf/", mobile_api.pdf_file, name="mobile_pdf"),
+    path("shelf/", mobile_api.my_shelf, name="mobile_shelf"),
+    path("quizzes/", mobile_api.quizzes, name="mobile_quizzes"),
+    path("quizzes/<int:pk>/", mobile_api.quiz_detail, name="mobile_quiz_detail"),
+    path("quizzes/<int:pk>/submit/", mobile_api.quiz_submit, name="mobile_quiz_submit"),
+    path("results/", mobile_api.my_results, name="mobile_results"),
+]
