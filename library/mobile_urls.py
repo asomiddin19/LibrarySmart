@@ -1,10 +1,11 @@
 from django.urls import path
-from . import mobile_api
+from . import mobile_api, google_auth
 
 urlpatterns = [
     path("auth/csrf/", mobile_api.csrf, name="mobile_csrf"),
     path("auth/login/", mobile_api.signin, name="mobile_login"),
     path("auth/logout/", mobile_api.signout, name="mobile_logout"),
+    path("auth/google/", google_auth.google_login, name="mobile_google_login"),
     path("me/", mobile_api.me, name="mobile_me"),
     path("books/", mobile_api.books, name="mobile_books"),
     path("books/<int:pk>/", mobile_api.book_detail, name="mobile_book_detail"),
