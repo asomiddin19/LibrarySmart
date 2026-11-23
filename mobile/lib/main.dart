@@ -1,7 +1,10 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'pdf_reader.dart';
 
 const server = String.fromEnvironment('LIBRARY_API_BASE',
     defaultValue: 'https://librarysmart-production.up.railway.app');
@@ -19,6 +22,14 @@ class Api {
       final match = RegExp(r'csrftoken=([^;]+)').firstMatch(raw);
       csrf = match?.group(1);
     }
+  }
+  Future<Uint8List> pdfBytes(int bookId) async {
+    final headers = <String, String>{if (cookie != null) 'Cookie': cookie!};
+    final response = await client.get(Uri.parse('$server/api/v1/books/$bookId/pdf/'), headers: headers);
+    if (response.statusCode != 200 || !response.headers['content-type'].toString().contains('pdf')) {
+      throw Exception('PDF yuklab olinmadi: HTTP ${response.statusCode}');
+    }
+    return response.bodyBytes;
   }
   Future<dynamic> request(String path, {String method = 'GET', Object? body}) async {
     final uri = Uri.parse('$server/api/v1/$path');
@@ -96,6 +107,21 @@ class _LoginState extends State<Login> {
   final username = TextEditingController(), password = TextEditingController();
   String error = ''; bool busy = false;
   @override void dispose() { username.dispose(); password.dispose(); super.dispose(); }
+  Future<void> googleLogin() async {
+    setState(() { busy = true; error = ''; });
+    try {
+      const clientId = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
+      if (clientId.isEmpty) throw Exception('GOOGLE_WEB_CLIENT_ID sozlanmagan.');
+      final signIn = GoogleSignIn.instance;
+      await signIn.initialize(serverClientId: clientId);
+      final account = await signIn.authenticate();
+      final token = account.authentication.idToken;
+      if (token == null) throw Exception('Google ID token kelmadi.');
+      await widget.api.request('auth/google/', method: 'POST', body: {'id_token': token});
+      widget.onLogin();
+    } catch (e) { if (mounted) setState(() => error = e.toString()); }
+    finally { if (mounted) setState(() => busy = false); }
+  }
   Future<void> submit() async {
     setState(() { busy = true; error = ''; });
     try {
@@ -118,7 +144,9 @@ class _LoginState extends State<Login> {
             style: const TextStyle(color: Colors.red)),
           FilledButton(onPressed: busy ? null : submit, child: const Text('Kirish')),
           const SizedBox(height: 8),
-          const Text('Google kirish uchun alohida OAuth sozlamalari kerak.'),
+          OutlinedButton.icon(onPressed: busy ? null : googleLogin,
+            icon: const Icon(Icons.account_circle), label: const Text('Google orqali kirish')),
+          const Text('Google Cloud OAuth Client ID sozlanishi kerak.'),
         ])))));
 }
 
@@ -198,8 +226,17 @@ class _BookDetailState extends State<BookDetail> {
         divisions: (widget.book['pages'] as int) > 1 ? (widget.book['pages'] as int)-1 : null,
         onChanged: (value) => save(newPage: value.round())),
       const SizedBox(height: 12),
-      const Text('PDF faylga kirish uchun web o‘quvchidan foydalaning.'),
-      SelectableText('$server/books/${widget.book['id']}/read/'),
+      if (widget.book['has_pdf'] == true) FilledButton.icon(
+        icon: const Icon(Icons.menu_book),
+        label: const Text('PDF kitobni o‘qish'),
+        onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => PdfReader(
+            title: widget.book['title'], initialPage: page,
+            fetchPdf: () => widget.api.pdfBytes(widget.book['id'] as int),
+            onPageChanged: (newPage) => save(newPage: newPage),
+          ),
+        )),
+      ),
     ]),
   );
 }
