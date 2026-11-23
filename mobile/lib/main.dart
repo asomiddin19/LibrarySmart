@@ -18,19 +18,35 @@ const server = String.fromEnvironment('LIBRARY_API_BASE',
 class Api {
   final client = http.Client();
   final storage = const FlutterSecureStorage();
+  String baseUrl = server;
   String? cookie;
   String? csrf;
   Future<void> init() async {
+    baseUrl = await storage.read(key: 'server_url') ?? server;
     cookie = await storage.read(key: 'session');
-    final res = await client.get(Uri.parse('$server/api/v1/auth/csrf/'));
+    final res = await client.get(Uri.parse('$baseUrl/api/v1/auth/csrf/'));
     final raw = res.headers['set-cookie'];
     if (raw != null && raw.contains('csrftoken=')) {
       final match = RegExp(r'csrftoken=([^;]+)').firstMatch(raw);
       csrf = match?.group(1);
     }
   }
+  Future<void> changeServer(String value) async {
+    final uri = Uri.tryParse(value.trim());
+    if (uri == null || uri.scheme != 'https' || uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty || uri.hasQuery || uri.hasFragment ||
+        (uri.path.isNotEmpty && uri.path != '/')) {
+      throw const FormatException('Faqat HTTPS server domenini kiriting.');
+    }
+    baseUrl = uri.origin;
+    cookie = null;
+    csrf = null;
+    await storage.delete(key: 'session');
+    await storage.write(key: 'server_url', value: baseUrl);
+    await init();
+  }
   Future<Uint8List> epubBytes(int bookId) async {
-    final response = await client.get(Uri.parse('$server/api/v1/books/$bookId/epub/'),
+    final response = await client.get(Uri.parse('$baseUrl/api/v1/books/$bookId/epub/'),
       headers: {if (cookie != null) 'Cookie': cookie!});
     if (response.statusCode != 200 || !response.headers['content-type'].toString().contains('epub')) {
       throw Exception('EPUB yuklab olinmadi: HTTP ${response.statusCode}');
@@ -39,14 +55,14 @@ class Api {
   }
   Future<Uint8List> pdfBytes(int bookId) async {
     final headers = <String, String>{if (cookie != null) 'Cookie': cookie!};
-    final response = await client.get(Uri.parse('$server/api/v1/books/$bookId/pdf/'), headers: headers);
+    final response = await client.get(Uri.parse('$baseUrl/api/v1/books/$bookId/pdf/'), headers: headers);
     if (response.statusCode != 200 || !response.headers['content-type'].toString().contains('pdf')) {
       throw Exception('PDF yuklab olinmadi: HTTP ${response.statusCode}');
     }
     return response.bodyBytes;
   }
   Future<dynamic> request(String path, {String method = 'GET', Object? body}) async {
-    final uri = Uri.parse('$server/api/v1/$path');
+    final uri = Uri.parse('$baseUrl/api/v1/$path');
     final headers = <String, String>{'Accept': 'application/json'};
     if (cookie != null) headers['Cookie'] = cookie!;
     if (csrf != null) {
@@ -162,8 +178,19 @@ class Login extends StatefulWidget {
 class _LoginState extends State<Login> {
   static Future<void>? googleInitialization;
   final username = TextEditingController(), password = TextEditingController();
+  final serverAddress = TextEditingController();
   String error = ''; bool busy = false;
-  @override void dispose() { username.dispose(); password.dispose(); super.dispose(); }
+  @override void initState() { super.initState(); serverAddress.text = widget.api.baseUrl; }
+  @override void dispose() { username.dispose(); password.dispose(); serverAddress.dispose(); super.dispose(); }
+  Future<void> saveServer() async {
+    setState(() { busy = true; error = ''; });
+    try {
+      await widget.api.changeServer(serverAddress.text);
+      if (mounted) setState(() => error = 'Server ulandi. Endi login qiling.');
+    } catch (e) {
+      if (mounted) setState(() => error = 'Server sozlamasi: $e');
+    } finally { if (mounted) setState(() => busy = false); }
+  }
   Future<void> googleLogin() async {
     setState(() { busy = true; error = ''; });
     try {
@@ -204,6 +231,12 @@ class _LoginState extends State<Login> {
       child: Padding(padding: const EdgeInsets.all(24), child: Column(
         mainAxisSize: MainAxisSize.min, children: [
           const Icon(Icons.menu_book, size: 72), const SizedBox(height: 20),
+          TextField(controller: serverAddress, autocorrect: false,
+            decoration: const InputDecoration(labelText: 'Server (HTTPS)',
+              hintText: 'https://your-staging.up.railway.app')),
+          TextButton(onPressed: busy ? null : saveServer,
+            child: const Text('Server manzilini saqlash')),
+          const SizedBox(height: 12),
           TextField(controller: username, decoration: const InputDecoration(labelText: 'Email yoki login')),
           TextField(controller: password, obscureText: true,
             decoration: const InputDecoration(labelText: 'Parol')),
@@ -359,7 +392,7 @@ class _BookDetailState extends State<BookDetail> {
         icon: const Icon(Icons.open_in_browser),
         label: const Text('Web-versiyada ochish'),
         onPressed: () async {
-          final uri = Uri.parse('$server/books/${widget.book['id']}/');
+          final uri = Uri.parse('${widget.api.baseUrl}/books/${widget.book['id']}/');
           if (!await launchUrl(uri, mode: LaunchMode.externalApplication) && mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Brauzerni ochib bo‘lmadi.')),
