@@ -101,7 +101,12 @@ def signin(request):
     username, password = obj.get("username"), obj.get("password")
     if not isinstance(username, str) or not isinstance(password, str):
         return fail("Login va parolni kiriting.")
-    user = authenticate(request, username=username, password=password)
+    actual_username = username
+    if "@" in username:
+        matches = list(User.objects.filter(email__iexact=username.strip()).values_list("username", flat=True)[:2])
+        if len(matches) == 1:
+            actual_username = matches[0]
+    user = authenticate(request, username=actual_username, password=password)
     if user is None or not user.is_active:
         return fail("Login yoki parol noto‘g‘ri.", 401)
     login(request, user)
