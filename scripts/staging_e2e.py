@@ -36,14 +36,19 @@ def main():
             headers["Content-Type"] = "application/json"
         if method not in ("GET", "HEAD"):
             headers["X-CSRFToken"] = csrf()
+            headers["Origin"] = base
         req = urllib.request.Request(base + path, data=data, headers=headers, method=method)
         try:
             response = opener.open(req, timeout=20)
         except urllib.error.HTTPError as e:
             response = e
         with response:
-            result = json.loads(response.read(100000))
+            raw = response.read(100000)
             status = response.status
+            try:
+                result = json.loads(raw)
+            except json.JSONDecodeError:
+                raise RuntimeError(f"{path}: HTTP {status} non-JSON response")
         if status != expected:
             raise RuntimeError(f"{path}: expected HTTP {expected}, got {status}")
         return result
