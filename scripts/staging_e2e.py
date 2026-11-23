@@ -101,6 +101,30 @@ def main():
                 raise RuntimeError(f"Authenticated {ext} download was invalid")
         print(f"PASS authenticated {ext.upper()} file download")
 
+    # The staging-only original networking quiz is seeded on container startup.
+    quiz = None
+    for attempt in range(18):
+        quiz = next(
+            (q for q in call("/api/v1/quizzes/")["results"] if q["title"] == "IPv4 va DNS asoslari (demo test)"),
+            None,
+        )
+        if quiz:
+            break
+        time.sleep(5)
+    if quiz is None:
+        raise RuntimeError("Demo networking quiz was not seeded into staging")
+    details = call(f"/api/v1/quizzes/{quiz['id']}/")
+    if len(details.get("questions", [])) != 3 or "answer" in json.dumps(details):
+        raise RuntimeError("Quiz data is incomplete or correct answers leaked")
+    result = call(f"/api/v1/quizzes/{quiz['id']}/submit/", "POST",
+                  {"version": details["version"], "answers": [1, 1, 0]})
+    if result["score"] != 3 or result["total"] != 3:
+        raise RuntimeError("Quiz scoring is incorrect")
+    results = call("/api/v1/results/")["results"]
+    if not any(x["id"] == result["attempt_id"] for x in results):
+        raise RuntimeError("Quiz attempt not persisted")
+    print("PASS quiz submission, scoring, and saved result")
+
     call("/api/v1/auth/logout/", "POST", {})
     call("/api/v1/me/", expected=401)
     print("PASS logout and unauthorized response")
