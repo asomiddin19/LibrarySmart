@@ -5,6 +5,7 @@ import json
 import os
 import secrets
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -38,10 +39,15 @@ def main():
             headers["X-CSRFToken"] = csrf()
             headers["Origin"] = base
         req = urllib.request.Request(base + path, data=data, headers=headers, method=method)
-        try:
-            response = opener.open(req, timeout=20)
-        except urllib.error.HTTPError as e:
-            response = e
+        for attempt in range(4):
+            try:
+                response = opener.open(req, timeout=20)
+            except urllib.error.HTTPError as e:
+                response = e
+            if response.status not in (502, 503, 504) or attempt == 3:
+                break
+            response.close()
+            time.sleep(2 * (attempt + 1))
         with response:
             raw = response.read(100000)
             status = response.status
