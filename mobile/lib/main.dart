@@ -1,18 +1,18 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 const server = String.fromEnvironment('LIBRARY_API_BASE',
     defaultValue: 'https://librarysmart-production.up.railway.app');
 
 class Api {
   final client = http.Client();
+  final storage = const FlutterSecureStorage();
   String? cookie;
   String? csrf;
   Future<void> init() async {
-    final prefs = await SharedPreferences.getInstance();
-    cookie = prefs.getString('session');
+    cookie = await storage.read(key: 'session');
     final res = await client.get(Uri.parse('$server/api/v1/auth/csrf/'));
     final raw = res.headers['set-cookie'];
     if (raw != null && raw.contains('csrftoken=')) {
@@ -38,10 +38,11 @@ class Api {
       final match = RegExp(r'sessionid=([^;]+)').firstMatch(setCookie);
       if (match != null) {
         cookie = 'sessionid=${match.group(1)}';
-        (await SharedPreferences.getInstance()).setString('session', cookie!);
+        await storage.write(key: 'session', value: cookie!);
       }
     }
-    final data = jsonDecode(full.body);
+    dynamic data;
+    try { data = jsonDecode(full.body); } catch (_) { throw Exception('Server JSON javob qaytarmadi (HTTP ${full.statusCode}).'); }
     if (full.statusCode >= 400) throw Exception(data['error'] ?? 'HTTP ${full.statusCode}');
     return data;
   }
@@ -77,7 +78,7 @@ class _LibraryAppState extends State<LibraryApp> {
       : loggedIn ? Home(api: api, onLogout: () async {
           await api.request('auth/logout/', method: 'POST');
           api.cookie = null;
-          (await SharedPreferences.getInstance()).remove('session');
+          await api.storage.delete(key: 'session');
           setState(() => loggedIn = false);
         }) : Login(api: api, onLogin: () => setState(() => loggedIn = true)),
   );
@@ -189,8 +190,8 @@ class _BookDetailState extends State<BookDetail> {
       SwitchListTile(title: const Text('Sevimli kitob'),
         value: favorite, onChanged: (value) => save(newFavorite: value)),
       Text('O‘qilgan sahifa: $page / ${widget.book['pages']}'),
-      Slider(value: page.toDouble().clamp(1.0, (widget.book['pages'] as int).toDouble()),
-        min: 1, max: (widget.book['pages'] as int).toDouble().clamp(1.0, double.infinity),
+      Slider(value: page.toDouble().clamp(1.0, ((widget.book['pages'] as int).clamp(1, 100000000)).toDouble()).toDouble(),
+        min: 1, max: ((widget.book['pages'] as int).clamp(1, 100000000)).toDouble(),
         divisions: (widget.book['pages'] as int) > 1 ? (widget.book['pages'] as int)-1 : null,
         onChanged: (value) => save(newPage: value.round())),
       const SizedBox(height: 12),
