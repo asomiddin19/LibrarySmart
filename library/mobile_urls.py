@@ -1,7 +1,8 @@
 from django.urls import path
-from . import mobile_api, google_auth, ai_chat
+from . import mobile_api, google_auth, ai_chat, health
 
 urlpatterns = [
+    path("health/", health.health, name="mobile_health"),
     path("auth/csrf/", mobile_api.csrf, name="mobile_csrf"),
     path("auth/login/", mobile_api.signin, name="mobile_login"),
     path("auth/signup/", mobile_api.signup, name="mobile_signup"),
