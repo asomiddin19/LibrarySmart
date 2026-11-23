@@ -50,11 +50,13 @@ def book_data(book, user):
         "id": book.pk, "title": book.title, "author": book.author,
         "description": book.description, "category": book.category,
         "language": book.language, "pages": book.pages, "year": book.year,
-        "has_pdf": bool(book.pdf), "has_audio": bool(book.audio),
+        "has_pdf": bool(book.pdf), "has_epub": bool(book.epub), "has_audio": bool(book.audio),
         "has_cover": bool(book.cover), "favorite": read.favorite if read else False,
         "page": read.page if read else 1, "finished": read.finished if read else False,
         "web_url": f"/books/{book.pk}/",
         "pdf_url": f"/api/v1/books/{book.pk}/pdf/" if book.pdf else None,
+        "epub_url": f"/api/v1/books/{book.pk}/epub/" if book.epub else None,
+        "locator": read.locator if read else "",
         "cover_url": f"/books/{book.pk}/cover/" if book.cover else None,
     }
 
@@ -183,6 +185,11 @@ def reading(request, pk):
                 return fail("Sahifa kitob chegarasidan tashqarida.")
             progress.page = obj["page"]
             progress.finished = obj["page"] == book.pages
+        if "locator" in obj:
+            locator = obj["locator"]
+            if not isinstance(locator, str) or len(locator) > 1024 or (locator and not locator.startswith("epubcfi(")):
+                return fail("EPUB o‘qish pozitsiyasi noto‘g‘ri.")
+            progress.locator = locator
         if "favorite" in obj:
             if type(obj["favorite"]) is not bool:
                 return fail("favorite true yoki false bo‘lishi kerak.")
@@ -190,6 +197,7 @@ def reading(request, pk):
         progress.save()
     return JsonResponse({"book_id": pk, "page": progress.page,
                          "favorite": progress.favorite, "finished": progress.finished,
+                         "locator": progress.locator,
                          "updated": progress.updated.isoformat()})
 
 
@@ -206,6 +214,13 @@ def pdf_file(request, pk):
     # Preserve existing access checks and private storage behavior.
     from .views import pdf_response
     return pdf_response(request, pk, False)
+
+
+@api_login_required
+@require_GET
+def epub_file(request, pk):
+    from .views import epub_response
+    return epub_response(request, pk)
 
 
 @api_login_required
