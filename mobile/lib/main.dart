@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'pdf_reader.dart';
+import 'learning_pages.dart';
 
 const server = String.fromEnvironment('LIBRARY_API_BASE',
     defaultValue: 'https://librarysmart-production.up.railway.app');
@@ -160,6 +161,9 @@ class _HomeState extends State<Home> {
   @override void initState() { super.initState(); books = widget.api.request('books/'); }
   @override Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Library Smart Digital'), actions: [
+      IconButton(icon: const Icon(Icons.quiz), tooltip: 'Testlar',
+        onPressed: () => Navigator.push(context, MaterialPageRoute(
+          builder: (_) => QuizListPage(api: widget.api.request))),
       IconButton(icon: const Icon(Icons.logout), onPressed: widget.onLogout),
     ]),
     body: FutureBuilder<dynamic>(future: books, builder: (context, snapshot) {
@@ -226,6 +230,13 @@ class _BookDetailState extends State<BookDetail> {
         divisions: (widget.book['pages'] as int) > 1 ? (widget.book['pages'] as int)-1 : null,
         onChanged: (value) => save(newPage: value.round())),
       const SizedBox(height: 12),
+      if (widget.book['has_pdf'] == true) OutlinedButton.icon(
+        icon: const Icon(Icons.auto_awesome),
+        label: const Text('AI bilan o‘rganish'),
+        onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => AskBookPage(api: widget.api.request,
+            bookId: widget.book['id'] as int, title: widget.book['title']))),
+      ),
       if (widget.book['has_pdf'] == true) FilledButton.icon(
         icon: const Icon(Icons.menu_book),
         label: const Text('PDF kitobni o‘qish'),
