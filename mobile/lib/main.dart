@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:app_links/app_links.dart';
 import 'pdf_reader.dart';
 import 'epub_reader.dart';
 import 'learning_pages.dart';
@@ -84,20 +86,59 @@ class LibraryApp extends StatefulWidget {
 
 class _LibraryAppState extends State<LibraryApp> {
   final api = Api();
+  final navigatorKey = GlobalKey<NavigatorState>();
+  StreamSubscription<Uri>? linkSubscription;
+  int? pendingBookId;
   bool ready = false;
   bool loggedIn = false;
   @override
-  void initState() { super.initState(); boot(); }
+  void initState() {
+    super.initState();
+    linkSubscription = AppLinks().uriLinkStream.listen((uri) {
+      if (uri.scheme != 'librarysmart' || uri.host != 'book' || uri.pathSegments.isEmpty) return;
+      final id = int.tryParse(uri.pathSegments.first);
+      if (id == null || id <= 0) return;
+      pendingBookId = id;
+      openPendingBook();
+    });
+    boot();
+  }
+  Future<void> openPendingBook() async {
+    if (!ready || !loggedIn || pendingBookId == null) return;
+    final id = pendingBookId!;
+    pendingBookId = null;
+    try {
+      final book = await api.request('books/$id/');
+      if (!mounted) return;
+      navigatorKey.currentState?.push(MaterialPageRoute(
+        builder: (_) => BookDetail(api: api, book: book)));
+    } catch (_) {
+      if (mounted && navigatorKey.currentContext != null) {
+        ScaffoldMessenger.maybeOf(navigatorKey.currentContext!)?.showSnackBar(
+          const SnackBar(content: Text('Kitobni ochib bo‘lmadi.')));
+      }
+    }
+  }
+  @override
+  void dispose() {
+    linkSubscription?.cancel();
+    api.client.close();
+    super.dispose();
+  }
   Future<void> boot() async {
     try {
       await api.init();
       await api.request('me/');
       loggedIn = true;
     } catch (_) { loggedIn = false; }
-    if (mounted) setState(() => ready = true);
+    if (mounted) {
+      setState(() => ready = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) => openPendingBook());
+    }
   }
   @override
   Widget build(BuildContext context) => MaterialApp(
+    navigatorKey: navigatorKey,
     title: 'Library Smart',
     theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.indigo),
     home: !ready ? const Scaffold(body: Center(child: CircularProgressIndicator()))
@@ -106,7 +147,10 @@ class _LibraryAppState extends State<LibraryApp> {
           api.cookie = null;
           await api.storage.delete(key: 'session');
           setState(() => loggedIn = false);
-        }) : Login(api: api, onLogin: () => setState(() => loggedIn = true)),
+        }) : Login(api: api, onLogin: () {
+          setState(() => loggedIn = true);
+          WidgetsBinding.instance.addPostFrameCallback((_) => openPendingBook());
+        }),
   );
 }
 
