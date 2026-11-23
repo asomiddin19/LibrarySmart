@@ -4,11 +4,12 @@ from django.contrib.auth.models import User
 from pypdf import PdfReader
 from .models import Book,Review,CATEGORIES
 from mutagen import File as AudioFile
+from zipfile import ZipFile, BadZipFile
 
 class BookForm(forms.ModelForm):
     class Meta:
         model=Book
-        fields=["title","author","category","language","year","isbn","description","cover","pdf","audio","published"]
+        fields=["title","author","category","language","year","isbn","description","cover","pdf","epub","audio","published"]
         widgets={"description":forms.Textarea(attrs={"rows":4}),"pdf":forms.FileInput(attrs={"accept":"application/pdf,.pdf"}),"audio":forms.FileInput(attrs={"accept":".mp3,.wav,.m4a,.ogg"})}
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
@@ -16,7 +17,8 @@ class BookForm(forms.ModelForm):
         if self.instance.category and self.instance.category not in dict(choices): choices.append((self.instance.category,self.instance.category))
         self.fields["category"].widget=forms.Select(choices=choices)
         self.fields["audio"].help_text="MP3, WAV, M4A yoki OGG (150 MB gacha)."
-        self.fields["pdf"].help_text="PDF (50 MB gacha). PDF yoki audio fayldan kamida bittasini tanlang."
+        self.fields["pdf"].help_text="PDF (50 MB gacha)."
+        self.fields["epub"].help_text="EPUB (50 MB gacha). PDF, EPUB yoki audio fayldan bittasini tanlang."
     def clean_cover(self):
         f=self.files.get("cover")
         if f:
@@ -38,8 +40,31 @@ class BookForm(forms.ModelForm):
         return f
     def clean(self):
         data=super().clean()
-        if not data.get("pdf") and not data.get("audio"): raise forms.ValidationError("PDF yoki audio kitob yuklang.")
+        if not data.get("pdf") and not data.get("epub") and not data.get("audio"): raise forms.ValidationError("PDF, EPUB yoki audio kitob yuklang.")
         return data
+    def clean_epub(self):
+        uploaded = self.files.get("epub")
+        if not uploaded:
+            return self.cleaned_data.get("epub")
+        if uploaded.size > 50 * 1024 * 1024 or not uploaded.name.lower().endswith(".epub"):
+            raise forms.ValidationError("Faqat 50 MB gacha EPUB yuklang.")
+        try:
+            with ZipFile(uploaded) as archive:
+                entries = archive.infolist()
+                if len(entries) > 5000 or sum(x.file_size for x in entries) > 300 * 1024 * 1024:
+                    raise ValueError("Juda katta EPUB arxivi")
+                if any(x.filename.startswith("/") or ".." in x.filename.split("/") for x in entries):
+                    raise ValueError("Noto‘g‘ri EPUB yo‘li")
+                if archive.read("mimetype") != b"application/epub+zip":
+                    raise ValueError("EPUB mimetype noto‘g‘ri")
+                if "META-INF/container.xml" not in archive.namelist():
+                    raise ValueError("EPUB tarkibi noto‘g‘ri")
+        except (BadZipFile, KeyError, ValueError, RuntimeError, OSError):
+            raise forms.ValidationError("EPUB fayli buzilgan yoki noto‘g‘ri.")
+        finally:
+            uploaded.seek(0)
+        return uploaded
+
     def clean_pdf(self):
         uploaded=self.files.get("pdf")
         if not uploaded: return self.cleaned_data.get("pdf")
