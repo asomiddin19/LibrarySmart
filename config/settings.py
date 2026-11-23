@@ -59,8 +59,10 @@ RAILWAY_VOLUME = os.getenv("RAILWAY_VOLUME_MOUNT_PATH")
 
 if RAILWAY_VOLUME:
     DATA_DIR = Path(RAILWAY_VOLUME)
-
-    DATABASES["default"]["NAME"] = DATA_DIR / "db.sqlite3"
+    # Persistent media and Drive credentials live on the volume even if PostgreSQL is used.
+    # Never overwrite PostgreSQL NAME with a local SQLite path.
+    if DATABASES["default"]["ENGINE"] == "django.db.backends.sqlite3":
+        DATABASES["default"]["NAME"] = DATA_DIR / "db.sqlite3"
     MEDIA_ROOT = DATA_DIR / "private_media"
     DRIVE_CONFIG_DIR = DATA_DIR / ".library-cloud"
 
