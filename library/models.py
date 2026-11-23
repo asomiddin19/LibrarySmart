@@ -53,6 +53,7 @@ class Reading(models.Model):
     book=models.ForeignKey(Book,on_delete=models.CASCADE,related_name="readings")
     favorite=models.BooleanField(default=False)
     page=models.PositiveIntegerField(default=1)
+    locator=models.CharField(max_length=1024, blank=True)
     finished=models.BooleanField(default=False)
     updated=models.DateTimeField(auto_now=True)
     class Meta:
