@@ -30,6 +30,8 @@
   </form>
   <p id="book-ai-status" role="status" aria-live="polite"></p>
   <div id="book-ai-answer" style="white-space:pre-wrap" aria-live="polite"></div>
+  <h3>Oldingi savol-javoblar</h3>
+  <div id="book-ai-history" style="white-space:pre-wrap"></div>
 </section>
 <script>
 (() => {
@@ -37,6 +39,24 @@
   const status = document.getElementById('book-ai-status');
   const answer = document.getElementById('book-ai-answer');
   const button = document.getElementById('book-ai-send');
+  const history = document.getElementById('book-ai-history');
+  async function loadHistory() {
+    const response = await fetch('{% url "mobile_ai_history" book.pk %}', {credentials: 'same-origin'});
+    if (!response.ok) return;
+    const data = await response.json();
+    history.replaceChildren();
+    for (const item of data.results) {
+      const block = document.createElement('div');
+      block.style.marginBottom = '1rem';
+      const heading = document.createElement('strong');
+      heading.textContent = item.question;
+      const responseText = document.createElement('p');
+      responseText.textContent = item.answer;
+      block.append(heading, responseText);
+      history.append(block);
+    }
+  }
+  loadHistory().catch(() => {});
   form.addEventListener('submit', async event => {
     event.preventDefault();
     answer.textContent = '';
@@ -53,6 +73,7 @@
       if (!response.ok) throw new Error(data.error || 'AI vaqtincha ishlamayapti.');
       answer.textContent = data.answer;
       status.textContent = 'Javob olindi. Manbadagi sahifalarni tekshiring.';
+      loadHistory().catch(() => {});
     } catch (error) {
       status.textContent = error.message;
     } finally {
