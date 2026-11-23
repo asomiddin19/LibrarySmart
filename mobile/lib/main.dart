@@ -34,6 +34,9 @@ class Api {
       ..body = body == null ? '' : jsonEncode(body));
     final full = await http.Response.fromStream(response);
     final setCookie = full.headers['set-cookie'];
+    if (setCookie != null && setCookie.contains('csrftoken=')) {
+      csrf = RegExp(r'csrftoken=([^;]+)').firstMatch(setCookie)?.group(1) ?? csrf;
+    }
     if (setCookie != null && setCookie.contains('sessionid=')) {
       final match = RegExp(r'sessionid=([^;]+)').firstMatch(setCookie);
       if (match != null) {
