@@ -18,6 +18,11 @@ dependencies:
   epub_view: ^3.3.0
   app_links: ^7.0.0
 
+# epub_view -> flutter_html 3.0.0 calls a selector API removed in html 0.15.7.
+# Temporary compatibility pin until upstream flutter_html fixes the API.
+dependency_overrides:
+  html: 0.15.6
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
