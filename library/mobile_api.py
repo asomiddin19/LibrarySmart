@@ -9,7 +9,7 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.core.cache import cache
 from django.utils.crypto import get_random_string
-from django.contrib.auth.decorators import login_required
+from functools import wraps
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
@@ -18,6 +18,16 @@ from django.views.decorators.http import require_GET, require_POST, require_http
 from .models import Book, Reading, Quiz, QuizAttempt
 from .views import visible
 from .quiz_views import visible_quizzes, fingerprint
+
+
+def api_login_required(view):
+    """Return a machine-readable 401 instead of an HTML login redirect."""
+    @wraps(view)
+    def protected(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return fail("Tizimga kirish talab qilinadi.", 401)
+        return view(request, *args, **kwargs)
+    return protected
 
 
 def fail(message, status=400):
@@ -120,7 +130,7 @@ def signout(request):
     return JsonResponse({"ok": True})
 
 
-@login_required
+@api_login_required
 @require_GET
 def me(request):
     user = request.user
@@ -129,7 +139,7 @@ def me(request):
                          "email": user.email, "is_staff": user.is_staff or user.is_superuser})
 
 
-@login_required
+@api_login_required
 @require_GET
 def books(request):
     qs = visible(request.user).order_by("-created")
@@ -152,14 +162,14 @@ def books(request):
                          "count": paginator.count, "page": page})
 
 
-@login_required
+@api_login_required
 @require_GET
 def book_detail(request, pk):
     book = get_object_or_404(visible(request.user), pk=pk)
     return JsonResponse(book_data(book, request.user))
 
 
-@login_required
+@api_login_required
 @require_http_methods(["GET", "PUT"])
 def reading(request, pk):
     book = get_object_or_404(visible(request.user), pk=pk)
@@ -183,14 +193,14 @@ def reading(request, pk):
                          "updated": progress.updated.isoformat()})
 
 
-@login_required
+@api_login_required
 @require_GET
 def my_shelf(request):
     qs = Reading.objects.filter(user=request.user, book__in=visible(request.user)).select_related("book")
     return JsonResponse({"results": [book_data(x.book, request.user) for x in qs[:100]]})
 
 
-@login_required
+@api_login_required
 @require_GET
 def pdf_file(request, pk):
     # Preserve existing access checks and private storage behavior.
@@ -198,7 +208,7 @@ def pdf_file(request, pk):
     return pdf_response(request, pk, False)
 
 
-@login_required
+@api_login_required
 @require_GET
 def quizzes(request):
     qs = visible_quizzes(request.user).filter(published=True)
@@ -207,7 +217,7 @@ def quizzes(request):
                                       for q in qs[:100]]})
 
 
-@login_required
+@api_login_required
 @require_GET
 def quiz_detail(request, pk):
     q = get_object_or_404(visible_quizzes(request.user).filter(published=True), pk=pk)
@@ -216,7 +226,7 @@ def quiz_detail(request, pk):
                                        for item in q.questions]})
 
 
-@login_required
+@api_login_required
 @require_POST
 def quiz_submit(request, pk):
     q = get_object_or_404(visible_quizzes(request.user).filter(published=True), pk=pk)
@@ -240,7 +250,7 @@ def quiz_submit(request, pk):
                          "total": attempt.total, "results": result})
 
 
-@login_required
+@api_login_required
 @require_GET
 def my_results(request):
     attempts = QuizAttempt.objects.filter(user=request.user).select_related("quiz")[:100]
