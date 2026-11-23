@@ -79,6 +79,7 @@ class Api {
     if (cookie != null) headers['Cookie'] = cookie!;
     if (csrf != null) {
       headers['X-CSRFToken'] = csrf!;
+      headers['Origin'] = baseUrl;
       headers['Cookie'] = [if (cookie != null) cookie!, 'csrftoken=$csrf'].join('; ');
     }
     if (body != null) headers['Content-Type'] = 'application/json';
