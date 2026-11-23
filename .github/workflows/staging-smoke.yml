@@ -1,0 +1,19 @@
+name: Library Smart Staging Smoke Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      staging_url:
+        description: 'HTTPS staging origin (e.g. https://your-staging.up.railway.app)'
+        type: string
+        required: true
+
+jobs:
+  staging-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check deployed API health and CSRF
+        env:
+          STAGING_URL: ${{ inputs.staging_url }}
+        run: python3 scripts/staging_smoke.py
