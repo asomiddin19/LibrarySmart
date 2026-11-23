@@ -105,6 +105,7 @@ class Login extends StatefulWidget {
   @override State<Login> createState() => _LoginState();
 }
 class _LoginState extends State<Login> {
+  static Future<void>? googleInitialization;
   final username = TextEditingController(), password = TextEditingController();
   String error = ''; bool busy = false;
   @override void dispose() { username.dispose(); password.dispose(); super.dispose(); }
@@ -114,7 +115,8 @@ class _LoginState extends State<Login> {
       const clientId = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
       if (clientId.isEmpty) throw Exception('GOOGLE_WEB_CLIENT_ID sozlanmagan.');
       final signIn = GoogleSignIn.instance;
-      await signIn.initialize(serverClientId: clientId);
+      googleInitialization ??= signIn.initialize(serverClientId: clientId);
+      await googleInitialization;
       final account = await signIn.authenticate();
       final token = account.authentication.idToken;
       if (token == null) throw Exception('Google ID token kelmadi.');
