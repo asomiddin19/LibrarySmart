@@ -77,6 +77,30 @@ def main():
             raise RuntimeError(f"Unexpected response from {path}")
         print("PASS", path)
 
+    catalog = call("/api/v1/books/")
+    demo = next((item for item in catalog["results"] if item["title"] == "Tarmoq asoslari: IPv4 va DNS (demo)"), None)
+    if not demo or not demo["has_pdf"] or not demo["has_epub"]:
+        raise RuntimeError("Staging demo PDF+EPUB is missing from the authenticated catalog")
+    book_id = demo["id"]
+    print("PASS original sample PDF/EPUB listed")
+
+    progress = call(f"/api/v1/books/{book_id}/reading/", "PUT", {"page": 2, "favorite": True})
+    if progress["page"] != 2 or not progress["favorite"]:
+        raise RuntimeError("Book progress and favorite did not save")
+    stored = call(f"/api/v1/books/{book_id}/reading/")
+    if stored["page"] != 2 or not stored["favorite"]:
+        raise RuntimeError("Book progress not persisted on staging")
+    if not any(item["id"] == book_id and item["favorite"] for item in call("/api/v1/shelf/")["results"]):
+        raise RuntimeError("Favorite book missing from shelf")
+    print("PASS book progress and favorite persisted")
+
+    for ext, prefix in (("pdf", b"%PDF-"), ("epub", b"PK")):
+        with opener.open(base + f"/api/v1/books/{book_id}/{ext}/", timeout=25) as response:
+            data = response.read(100000)
+            if response.status != 200 or not data.startswith(prefix):
+                raise RuntimeError(f"Authenticated {ext} download was invalid")
+        print(f"PASS authenticated {ext.upper()} file download")
+
     call("/api/v1/auth/logout/", "POST", {})
     call("/api/v1/me/", expected=401)
     print("PASS logout and unauthorized response")
