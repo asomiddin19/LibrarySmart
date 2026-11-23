@@ -45,3 +45,29 @@ class MobileApiTests(TestCase):
     def test_anonymous_access_denied(self):
         self.client.logout()
         self.assertEqual(self.client.get('/api/v1/books/').status_code, 302)
+
+    def test_mobile_signup_and_email_login(self):
+        self.client.logout()
+        response = self.client.post(
+            '/api/v1/auth/signup/',
+            json.dumps({'email': 'newreader@example.test', 'password': 'StrongPassword!2406'}),
+            content_type='application/json')
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(self.client.get('/api/v1/me/').status_code, 200)
+        self.client.logout()
+        result = self.client.post('/api/v1/auth/login/',
+            json.dumps({'username': 'newreader@example.test', 'password': 'StrongPassword!2406'}),
+            content_type='application/json')
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(self.client.get('/api/v1/me/').json()['email'], 'newreader@example.test')
+
+    def test_duplicate_signup_email_rejected(self):
+        self.client.logout()
+        response = self.client.post('/api/v1/auth/signup/',
+            json.dumps({'email': 'reader@example.test', 'password': 'StrongPassword!2406'}),
+            content_type='application/json')
+        self.assertEqual(response.status_code, 201)
+        response = self.client.post('/api/v1/auth/signup/',
+            json.dumps({'email': 'reader@example.test', 'password': 'StrongPassword!2406'}),
+            content_type='application/json')
+        self.assertEqual(response.status_code, 409)
