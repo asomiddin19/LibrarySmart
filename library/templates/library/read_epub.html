@@ -3,7 +3,7 @@
 <div class="heading">
   <div><a href="{% url 'detail' book.pk %}">Kitob haqida</a>
     <h1>{{ book.title }}</h1><p>{{ book.author }} · EPUB format</p></div>
-  <a class="button" href="{% url 'epub' book.pk %}" download>EPUB yuklab olish</a>
+  <a class="button" href="librarysmart://book/{{ book.pk }}">📱 Ilovada ochish</a><a class="button" href="{% url 'epub' book.pk %}" download>EPUB yuklab olish</a>
 </div>
 <section class="panel">
   <p>Kitobdagi bo‘limlarni o‘qishingiz va shrifti o‘lchamini o‘zgartirishingiz mumkin.
