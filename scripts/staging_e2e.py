@@ -95,10 +95,20 @@ def main():
     print("PASS book progress and favorite persisted")
 
     for ext, prefix in (("pdf", b"%PDF-"), ("epub", b"PK")):
-        with opener.open(base + f"/api/v1/books/{book_id}/{ext}/", timeout=25) as response:
-            data = response.read(100000)
-            if response.status != 200 or not data.startswith(prefix):
-                raise RuntimeError(f"Authenticated {ext} download was invalid")
+        for attempt in range(5):
+            try:
+                response = opener.open(base + f"/api/v1/books/{book_id}/{ext}/", timeout=25)
+            except urllib.error.HTTPError as error:
+                response = error
+            with response:
+                status = response.status
+                data = response.read(100000)
+            if status in (502, 503, 504) and attempt < 4:
+                time.sleep(2 * (attempt + 1))
+                continue
+            if status != 200 or not data.startswith(prefix):
+                raise RuntimeError(f"Authenticated {ext} download failed: HTTP {status}")
+            break
         print(f"PASS authenticated {ext.upper()} file download")
 
     # The staging-only original networking quiz is seeded on container startup.
