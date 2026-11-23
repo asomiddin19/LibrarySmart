@@ -8,6 +8,7 @@ urlpatterns = [
     path("auth/signup/", mobile_api.signup, name="mobile_signup"),
     path("auth/logout/", mobile_api.signout, name="mobile_logout"),
     path("auth/google/", google_auth.google_login, name="mobile_google_login"),
+    path("auth/google/config/", google_auth.google_config, name="mobile_google_config"),
     path("me/", mobile_api.me, name="mobile_me"),
     path("books/", mobile_api.books, name="mobile_books"),
     path("books/<int:pk>/", mobile_api.book_detail, name="mobile_book_detail"),
