@@ -1,0 +1,62 @@
+name: Library Smart Production HTTP Smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-smoke.yml'
+      - 'library/**'
+      - 'config/**'
+      - 'Dockerfile'
+      - 'requirements.txt'
+      - 'railway.json'
+  workflow_dispatch:
+
+jobs:
+  verify-production:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify public health, CSRF and anonymous API access
+        env:
+          ORIGIN: https://librarysmart-production.up.railway.app
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import time
+          import urllib.error
+          import urllib.request
+
+          origin = os.environ["ORIGIN"]
+          for attempt in range(18):
+              try:
+                  for endpoint, status, expected in [
+                      ("/api/v1/health/", 200, {"status": "ok", "api": "v1"}),
+                      ("/api/v1/auth/csrf/", 200, {"ok": True}),
+                      ("/api/v1/books/", 401, {"error": "Tizimga kirish talab qilinadi."}),
+                  ]:
+                      req = urllib.request.Request(origin + endpoint, headers={"Accept": "application/json"})
+                      try:
+                          response = urllib.request.urlopen(req, timeout=12)
+                      except urllib.error.HTTPError as error:
+                          response = error
+                      with response:
+                          payload = json.loads(response.read(10000))
+                          if response.status != status:
+                              raise RuntimeError(f"{endpoint}: HTTP {response.status}, expected {status}")
+                          for key, value in expected.items():
+                              if payload.get(key) != value:
+                                  raise RuntimeError(f"{endpoint}: unexpected {key}")
+                      print("PASS", endpoint)
+                  login = urllib.request.urlopen(origin + "/accounts/login/", timeout=12)
+                  with login:
+                      if login.status != 200 or "text/html" not in login.headers.get("content-type", ""):
+                          raise RuntimeError("Web login page unavailable")
+                  print("PASS public web login page")
+                  break
+              except (urllib.error.URLError, RuntimeError, TimeoutError, ValueError) as error:
+                  if attempt == 17:
+                      raise
+                  print(f"Production rollout pending: attempt {attempt+1}")
+                  time.sleep(10)
+          PY
