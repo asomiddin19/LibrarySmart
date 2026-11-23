@@ -38,7 +38,19 @@ class Api {
         (uri.path.isNotEmpty && uri.path != '/')) {
       throw const FormatException('Faqat HTTPS server domenini kiriting.');
     }
-    baseUrl = uri.origin;
+    final candidate = uri.origin;
+    final response = await client.get(Uri.parse('$candidate/api/v1/health/'));
+    if (response.statusCode != 200) {
+      throw FormatException('Bu manzilda Library Smart API mavjud emas (HTTP ${response.statusCode}).');
+    }
+    dynamic health;
+    try { health = jsonDecode(response.body); } catch (_) {
+      throw const FormatException('Server API holatini JSON shaklida qaytarmadi.');
+    }
+    if (health is! Map || health['status'] != 'ok' || health['api'] != 'v1') {
+      throw const FormatException('Manzilda mos Library Smart API topilmadi.');
+    }
+    baseUrl = candidate;
     cookie = null;
     csrf = null;
     await storage.delete(key: 'session');
