@@ -5,6 +5,7 @@ from io import BytesIO
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 from django.contrib.auth.decorators import login_required
+from django.core.cache import cache
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
@@ -23,6 +24,15 @@ def ask_book(request, pk):
     question = body.get("question") if body else None
     if not isinstance(question, str) or not 2 <= len(question.strip()) <= 800:
         return fail("Savol 2–800 belgidan iborat bo‘lishi kerak.")
+    from django.utils import timezone
+    bucket = timezone.now().strftime("%Y%m%d%H%M")
+    limit_key = f"library-ai:{request.user.pk}:{bucket}"
+    if cache.add(limit_key, 1, timeout=70):
+        requests_this_minute = 1
+    else:
+        requests_this_minute = cache.incr(limit_key)
+    if requests_this_minute > 5:
+        return fail("AI limiti: bir daqiqada 5 ta savol. Keyinroq urinib ko‘ring.", 429)
     key = os.getenv("GEMINI_API_KEY")
     if not key:
         return fail("AI serverda sozlanmagan.", 503)
