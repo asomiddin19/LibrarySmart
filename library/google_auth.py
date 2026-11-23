@@ -6,7 +6,7 @@ from django.contrib.auth import login
 from django.contrib.auth.models import User
 from django.db import IntegrityError, transaction
 from django.http import JsonResponse
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_GET
 from .mobile_api import payload, fail
 from .models import GoogleIdentity
 
@@ -61,3 +61,17 @@ def google_login(request):
     login(request, user, backend="django.contrib.auth.backends.ModelBackend")
     return JsonResponse({"id": user.pk, "username": user.username,
                          "name": user.get_full_name() or user.username})
+
+
+@require_GET
+def google_config(request):
+    """Only the public OAuth web client ID; never credentials or token secrets."""
+    web_client_id = os.getenv("GOOGLE_WEB_CLIENT_ID", "").strip()
+    allowed = {x.strip() for x in os.getenv("GOOGLE_OAUTH_CLIENT_IDS", "").split(",") if x.strip()}
+    configured = bool(web_client_id and web_client_id in allowed)
+    response = JsonResponse({
+        "enabled": configured,
+        "web_client_id": web_client_id if configured else None,
+    })
+    response["Cache-Control"] = "no-store"
+    return response
