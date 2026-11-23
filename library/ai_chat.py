@@ -4,7 +4,7 @@ import os
 from io import BytesIO
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
-from django.contrib.auth.decorators import login_required
+from .mobile_api import api_login_required
 from django.core.cache import cache
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
@@ -16,7 +16,7 @@ from .mobile_api import payload, fail
 MAX_PDF_BYTES = 8 * 1024 * 1024
 MAX_CONTEXT = 12000
 
-@login_required
+@api_login_required
 @require_POST
 def ask_book(request, pk):
     book = get_object_or_404(visible(request.user).exclude(pdf=""), pk=pk)
