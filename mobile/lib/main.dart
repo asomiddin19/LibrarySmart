@@ -125,6 +125,15 @@ class _LoginState extends State<Login> {
     } catch (e) { if (mounted) setState(() => error = e.toString()); }
     finally { if (mounted) setState(() => busy = false); }
   }
+  Future<void> register() async {
+    setState(() { busy = true; error = ''; });
+    try {
+      await widget.api.request('auth/signup/', method: 'POST',
+        body: {'email': username.text.trim(), 'password': password.text});
+      widget.onLogin();
+    } catch (e) { if (mounted) setState(() => error = e.toString()); }
+    finally { if (mounted) setState(() => busy = false); }
+  }
   Future<void> submit() async {
     setState(() { busy = true; error = ''; });
     try {
@@ -140,12 +149,15 @@ class _LoginState extends State<Login> {
       child: Padding(padding: const EdgeInsets.all(24), child: Column(
         mainAxisSize: MainAxisSize.min, children: [
           const Icon(Icons.menu_book, size: 72), const SizedBox(height: 20),
-          TextField(controller: username, decoration: const InputDecoration(labelText: 'Login')),
+          TextField(controller: username, decoration: const InputDecoration(labelText: 'Email yoki login')),
           TextField(controller: password, obscureText: true,
             decoration: const InputDecoration(labelText: 'Parol')),
           const SizedBox(height: 20), if (error.isNotEmpty) Text(error,
             style: const TextStyle(color: Colors.red)),
           FilledButton(onPressed: busy ? null : submit, child: const Text('Kirish')),
+          const SizedBox(height: 8),
+          TextButton(onPressed: busy ? null : register,
+            child: const Text('Yangi akkaunt yaratish (email + parol)')),
           const SizedBox(height: 8),
           OutlinedButton.icon(onPressed: busy ? null : googleLogin,
             icon: const Icon(Icons.account_circle), label: const Text('Google orqali kirish')),
