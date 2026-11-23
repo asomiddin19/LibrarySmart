@@ -68,6 +68,14 @@ if RAILWAY_VOLUME:
 
 
 
+# Production must use durable storage. Ephemeral SQLite can silently lose
+# users, reading history and uploads on every Railway redeploy.
+if not DEBUG and DATABASES["default"]["ENGINE"] == "django.db.backends.sqlite3" and not RAILWAY_VOLUME:
+    raise ImproperlyConfigured(
+        "Production SQLite requires RAILWAY_VOLUME_MOUNT_PATH; "
+        "otherwise configure PostgreSQL with POSTGRES_DB."
+    )
+
 RAILWAY_DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN")
 
 if RAILWAY_DOMAIN:
