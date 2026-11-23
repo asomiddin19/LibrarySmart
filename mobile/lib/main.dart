@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'pdf_reader.dart';
 import 'learning_pages.dart';
+import 'library_pages.dart';
 
 const server = String.fromEnvironment('LIBRARY_API_BASE',
     defaultValue: 'https://librarysmart-production.up.railway.app');
@@ -175,6 +176,14 @@ class _HomeState extends State<Home> {
   @override void initState() { super.initState(); books = widget.api.request('books/'); }
   @override Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Library Smart Digital'), actions: [
+      IconButton(icon: const Icon(Icons.person), tooltip: 'Profil',
+        onPressed: () => Navigator.push(context, MaterialPageRoute(
+          builder: (_) => ProfilePage(api: widget.api.request)))),
+      IconButton(icon: const Icon(Icons.bookmark), tooltip: 'Mening kutubxonam',
+        onPressed: () => Navigator.push(context, MaterialPageRoute(
+          builder: (_) => ShelfPage(api: widget.api.request,
+            openBook: (book) => Navigator.push(context, MaterialPageRoute(
+              builder: (_) => BookDetail(api: widget.api, book: book)))))),
       IconButton(icon: const Icon(Icons.quiz), tooltip: 'Testlar',
         onPressed: () => Navigator.push(context, MaterialPageRoute(
           builder: (_) => QuizListPage(api: widget.api.request)))),
