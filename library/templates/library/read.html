@@ -1,1 +1,64 @@
-{% extends 'library/base.html' %}{% block content %}<div class="heading"><div><a href="{% url 'detail' book.pk %}">Kitob haqida</a><h1>{{ book.title }}</h1><p>{{ book.author }} · {{ book.pages }} sahifa</p></div><a class="button primary" href="{% url 'download' book.pk %}">PDF yuklab olish</a></div><section class="panel"><form method="post" action="{% url 'progress' book.pk %}" class="filters">{% csrf_token %}<label for="page">O‘qigan sahifangiz:</label><input id="page" name="page" type="number" min="1" max="{{ book.pages }}" value="{{ reading.page }}" required><button class="primary">Sahifani saqlash</button></form><div class="track"><div style="width:{{ reading.percent }}%"></div></div><small>{{ reading.percent }}% · Sahifani qo‘lda saqlang, keyingi safar shu sahifadan ochiladi.</small></section><iframe class="pdfviewer" title="{{ book.title }} PDF" src="{% url 'pdf' book.pk %}#page={{ reading.page }}"></iframe><p>Agar brauzeringiz PDFni ichkarida ko‘rsatmasa, <a target="_blank" rel="noopener" href="{% url 'pdf' book.pk %}">PDFni alohida oynada oching</a> yoki yuklab oling.</p>{% endblock %}
+{% extends 'library/base.html' %}
+{% block content %}
+<div class="heading">
+  <div>
+    <a href="{% url 'detail' book.pk %}">Kitob haqida</a>
+    <h1>{{ book.title }}</h1>
+    <p>{{ book.author }} · {{ book.pages }} sahifa</p>
+  </div>
+  <a class="button primary" href="{% url 'download' book.pk %}">PDF yuklab olish</a>
+</div>
+<section class="panel">
+  <form method="post" action="{% url 'progress' book.pk %}" class="filters">
+    {% csrf_token %}
+    <label for="page">O‘qigan sahifangiz:</label>
+    <input id="page" name="page" type="number" min="1" max="{{ book.pages }}" value="{{ reading.page }}" required>
+    <button class="primary">Sahifani saqlash</button>
+  </form>
+  <div class="track"><div style="width:{{ reading.percent }}%"></div></div>
+  <small>{{ reading.percent }}% · Keyingi safar shu sahifadan davom etasiz.</small>
+</section>
+<iframe class="pdfviewer" title="{{ book.title }} PDF" src="{% url 'pdf' book.pk %}#page={{ reading.page }}"></iframe>
+<p>Agar brauzerda PDF ko‘rinmasa, <a target="_blank" rel="noopener" href="{% url 'pdf' book.pk %}">alohida oynada oching</a>.</p>
+<section class="panel">
+  <h2>🤖 AI yordamchi — kitobga savol bering</h2>
+  <p>AI faqat mavjud PDF matnining cheklangan qismini ko‘radi. Javobni kitob bilan solishtiring.</p>
+  <form id="book-ai-form">
+    <label for="book-ai-question">Savolingiz</label>
+    <textarea id="book-ai-question" rows="3" maxlength="800" required placeholder="Masalan, kitobning asosiy fikrini tushuntir"></textarea>
+    <button class="primary" id="book-ai-send" type="submit">AI'dan so‘rash</button>
+  </form>
+  <p id="book-ai-status" role="status" aria-live="polite"></p>
+  <div id="book-ai-answer" style="white-space:pre-wrap" aria-live="polite"></div>
+</section>
+<script>
+(() => {
+  const form = document.getElementById('book-ai-form');
+  const status = document.getElementById('book-ai-status');
+  const answer = document.getElementById('book-ai-answer');
+  const button = document.getElementById('book-ai-send');
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    answer.textContent = '';
+    status.textContent = 'AI javob tayyorlayapti...';
+    button.disabled = true;
+    const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    try {
+      const response = await fetch('{% url "mobile_ask_book" book.pk %}', {
+        method: 'POST', credentials: 'same-origin',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf},
+        body: JSON.stringify({question: document.getElementById('book-ai-question').value})
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'AI vaqtincha ishlamayapti.');
+      answer.textContent = data.answer;
+      status.textContent = 'Javob olindi. Manbadagi sahifalarni tekshiring.';
+    } catch (error) {
+      status.textContent = error.message;
+    } finally {
+      button.disabled = false;
+    }
+  });
+})();
+</script>
+{% endblock %}
