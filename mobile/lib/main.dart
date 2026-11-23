@@ -230,7 +230,8 @@ class _BookDetailState extends State<BookDetail> {
       Slider(value: page.toDouble().clamp(1.0, ((widget.book['pages'] as int).clamp(1, 100000000)).toDouble()).toDouble(),
         min: 1, max: ((widget.book['pages'] as int).clamp(1, 100000000)).toDouble(),
         divisions: (widget.book['pages'] as int) > 1 ? (widget.book['pages'] as int)-1 : null,
-        onChanged: (value) => save(newPage: value.round())),
+        onChanged: (value) => setState(() => page = value.round()),
+        onChangeEnd: (value) => save(newPage: value.round())),
       const SizedBox(height: 12),
       if (widget.book['has_pdf'] == true) OutlinedButton.icon(
         icon: const Icon(Icons.auto_awesome),
