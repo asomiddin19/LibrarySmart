@@ -44,7 +44,7 @@ class MobileApiTests(TestCase):
 
     def test_anonymous_access_denied(self):
         self.client.logout()
-        self.assertEqual(self.client.get('/api/v1/books/').status_code, 302)
+        self.assertEqual(self.client.get('/api/v1/books/').status_code, 401)
 
     def test_mobile_signup_and_email_login(self):
         self.client.logout()
