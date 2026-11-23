@@ -51,7 +51,7 @@ jobs:
         shell: bash
         run: |
           for attempt in 1 2 3; do
-            flutter build apk --debug --dart-define=LIBRARY_API_BASE=https://librarysmart-production.up.railway.app && exit 0
+            flutter build apk --debug --dart-define=LIBRARY_API_BASE=https://librarysmart-api-staging.up.railway.app && exit 0
             echo "Android build attempt $attempt failed; retrying external dependencies"
             sleep $((attempt * 30))
           done
