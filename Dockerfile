@@ -14,4 +14,4 @@ RUN python manage.py collectstatic --noinput
 
 # PORT is provided by Railway; use a non-privileged port by default.
 EXPOSE 8000
-CMD ["sh", "-c", "exec gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --timeout 120"]
+CMD ["sh", "-c", "python manage.py migrate --noinput && exec gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --timeout 120"]
