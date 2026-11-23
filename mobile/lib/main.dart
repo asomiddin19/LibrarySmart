@@ -179,11 +179,22 @@ class _HomeState extends State<Home> {
       IconButton(icon: const Icon(Icons.person), tooltip: 'Profil',
         onPressed: () => Navigator.push(context, MaterialPageRoute(
           builder: (_) => ProfilePage(api: widget.api.request)))),
-      IconButton(icon: const Icon(Icons.bookmark), tooltip: 'Mening kutubxonam',
-        onPressed: () => Navigator.push(context, MaterialPageRoute(
-          builder: (_) => ShelfPage(api: widget.api.request,
-            openBook: (book) => Navigator.push(context, MaterialPageRoute(
-              builder: (_) => BookDetail(api: widget.api, book: book)))))),
+      IconButton(
+        icon: const Icon(Icons.bookmark),
+        tooltip: 'Mening kutubxonam',
+        onPressed: () {
+          Navigator.push(context, MaterialPageRoute(
+            builder: (shelfContext) => ShelfPage(
+              api: widget.api.request,
+              openBook: (book) {
+                Navigator.push(shelfContext, MaterialPageRoute(
+                  builder: (_) => BookDetail(api: widget.api, book: book),
+                ));
+              },
+            ),
+          ));
+        },
+      ),
       IconButton(icon: const Icon(Icons.quiz), tooltip: 'Testlar',
         onPressed: () => Navigator.push(context, MaterialPageRoute(
           builder: (_) => QuizListPage(api: widget.api.request)))),
