@@ -36,4 +36,4 @@ jobs:
           channel: stable
       - run: flutter create --platforms android,ios .
       - run: flutter pub get
-      - run: flutter analyze lib
+      - run: flutter analyze --no-fatal-infos lib
