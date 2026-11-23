@@ -8,9 +8,10 @@ from .mobile_api import api_login_required
 from django.core.cache import cache
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_GET
 from pypdf import PdfReader
 from .views import visible
+from .models import AIMessage
 from .mobile_api import payload, fail
 
 MAX_PDF_BYTES = 8 * 1024 * 1024
@@ -78,7 +79,21 @@ def ask_book(request, pk):
                          if "text" in part)
         if not answer:
             return fail("AI javob qaytarmadi.", 502)
-        return JsonResponse({"answer": answer, "book_id": book.pk,
+        message = AIMessage.objects.create(user=request.user, book=book,
+                                           question=question.strip(), answer=answer[:12000])
+        return JsonResponse({"answer": answer, "message_id": message.pk, "book_id": book.pk,
                              "scanned_pages": len(pdf.pages[:30]), "limited_context": True})
     except (ValueError, KeyError, IndexError, URLError, HTTPError, TimeoutError, OSError) as exc:
         return fail("AI xizmatida xatolik. Keyinroq qayta urinib ko‘ring.", 503)
+
+
+@api_login_required
+@require_GET
+def history(request, pk):
+    book = get_object_or_404(visible(request.user), pk=pk)
+    messages = AIMessage.objects.filter(user=request.user, book=book)[:50]
+    return JsonResponse({"results": [
+        {"id": msg.pk, "question": msg.question, "answer": msg.answer,
+         "created": msg.created.isoformat()}
+        for msg in messages
+    ]})
