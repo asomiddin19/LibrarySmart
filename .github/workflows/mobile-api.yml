@@ -42,6 +42,8 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: '3.38.5'
+          cache: true
       - run: flutter create --platforms android,ios .
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos lib
