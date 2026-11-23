@@ -96,3 +96,13 @@ class QuizAttempt(models.Model):
     class Meta: ordering=["-created"]
     @property
     def percent(self): return round(100*self.score/max(1,self.total))
+
+
+class GoogleIdentity(models.Model):
+    """Verified OIDC subject is the stable identity, not a mutable email or username."""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="google_identity")
+    subject = models.CharField(max_length=128, unique=True)
+    created = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Google identity for user {self.user_id}"
