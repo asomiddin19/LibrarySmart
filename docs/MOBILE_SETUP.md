@@ -55,7 +55,8 @@ Web Google tugmasi `GOOGLE_WEB_CLIENT_ID` berilganida ko'rinadi. OAuth authorize
 ## API
 
 - `GET /api/v1/auth/csrf/` — CSRF cookie
-- `POST /api/v1/auth/login/` — Django sessiya
+- `POST /api/v1/auth/login/` — Django sessiya (login yoki email bilan)
+- `POST /api/v1/auth/signup/` — sodda email + parol bilan ro‘yxatdan o‘tish
 - `POST /api/v1/auth/google/` — Google ID token
 - `GET /api/v1/books/`, `GET /api/v1/books/{id}/`
 - `GET /api/v1/books/{id}/pdf/` — yopiq PDF, session auth
@@ -69,6 +70,7 @@ Barcha state-changing API so'rovlari CSRF va cookie sessiya bilan ishlaydi.
 
 ## Rejalashtirilgan keyingi ishlar
 
+- Email tasdiqlash va akkauntni xavfsiz tiklashni production chiqishidan oldin kiritish
 - Flutter platforma manifestlarida final package name/bundle ID va Google konfiguratsiya
 - EPUB va audio player, shaxsiy profil, paginatsiya, yaxshiroq offline ishlash
 - AI savol tarixi, to'liq RAG, indekslash
@@ -77,3 +79,7 @@ Barcha state-changing API so'rovlari CSRF va cookie sessiya bilan ishlaydi.
 - Mavjud Railway media, SQLite/Drive zaxirasi va migratsiya rejasi
 
 Production `main` o'zgartirilmagan, mavjud kitoblar hech qayerga ko'chirilmagan.
+
+## APK holati
+
+GitHub Actions `Library Smart Mobile API CI` yangi PR commitlarida `flutter analyze` va `flutter build apk --debug` bajaradi. APK muvaffaqiyatli yig'ilsa, `Actions > run > Artifacts > library-smart-android-debug` orqali olish mumkin. APK `staging` server API ishga tushmaguncha production domeni bilan to'liq ishlamaydi. Bu debug-build, Play Store release emas.
