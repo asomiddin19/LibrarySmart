@@ -111,3 +111,19 @@ class GoogleIdentity(models.Model):
 
     def __str__(self):
         return f"Google identity for user {self.user_id}"
+
+
+
+class AIMessage(models.Model):
+    """A user's saved book Q&A history across web and mobile."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="ai_messages")
+    book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name="ai_messages")
+    question = models.CharField(max_length=800)
+    answer = models.TextField(max_length=12000)
+    created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created"]
+
+    def __str__(self):
+        return f"AI message {self.pk} for user {self.user_id}"
