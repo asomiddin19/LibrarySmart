@@ -37,3 +37,9 @@ jobs:
       - run: flutter create --platforms android,ios .
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos lib
+      - run: flutter build apk --debug --dart-define=LIBRARY_API_BASE=https://librarysmart-production.up.railway.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: library-smart-android-debug
+          path: mobile/build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 7
