@@ -14,6 +14,11 @@ class _AskBookPageState extends State<AskBookPage> {
   final question = TextEditingController();
   String answer = '';
   bool loading = false;
+  late Future<dynamic> history;
+  @override void initState() {
+    super.initState();
+    history = widget.api('books/${widget.bookId}/ai-history/');
+  }
   @override void dispose() { question.dispose(); super.dispose(); }
   Future<void> ask() async {
     if (question.text.trim().isEmpty) return;
@@ -21,7 +26,10 @@ class _AskBookPageState extends State<AskBookPage> {
     try {
       final response = await widget.api('books/${widget.bookId}/ask/',
           method: 'POST', body: {'question': question.text});
-      if (mounted) setState(() => answer = response['answer'] ?? 'Javob bo‘sh.');
+      if (mounted) setState(() {
+        answer = response['answer'] ?? 'Javob bo‘sh.';
+        history = widget.api('books/${widget.bookId}/ai-history/');
+      });
     } catch (e) {
       if (mounted) setState(() => answer = 'AI xatosi: $e');
     } finally { if (mounted) setState(() => loading = false); }
@@ -39,6 +47,19 @@ class _AskBookPageState extends State<AskBookPage> {
         child: Text(loading ? 'Javob olinmoqda...' : 'AI yordamchidan so‘rash')),
       const SizedBox(height: 20),
       SelectableText(answer, style: Theme.of(context).textTheme.bodyLarge),
+      const SizedBox(height: 16),
+      const Text('Oldingi suhbatlar', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+      FutureBuilder<dynamic>(future: history, builder: (context, snapshot) {
+        if (!snapshot.hasData) return const Text('Suhbatlar yuklanmoqda...');
+        final messages = snapshot.data['results'] as List<dynamic>;
+        if (messages.isEmpty) return const Text('Hozircha suhbatlar yo‘q.');
+        return Column(children: [
+          for (final item in messages) ListTile(
+            title: Text(item['question'] ?? ''),
+            subtitle: Text(item['answer'] ?? '', maxLines: 4, overflow: TextOverflow.ellipsis),
+          ),
+        ]);
+      }),
     ]),
   );
 }
