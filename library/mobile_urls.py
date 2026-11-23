@@ -4,6 +4,7 @@ from . import mobile_api, google_auth, ai_chat
 urlpatterns = [
     path("auth/csrf/", mobile_api.csrf, name="mobile_csrf"),
     path("auth/login/", mobile_api.signin, name="mobile_login"),
+    path("auth/signup/", mobile_api.signup, name="mobile_signup"),
     path("auth/logout/", mobile_api.signout, name="mobile_logout"),
     path("auth/google/", google_auth.google_login, name="mobile_google_login"),
     path("me/", mobile_api.me, name="mobile_me"),
