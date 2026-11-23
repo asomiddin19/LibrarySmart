@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'pdf_reader.dart';
+import 'epub_reader.dart';
 import 'learning_pages.dart';
 import 'library_pages.dart';
 
@@ -25,6 +26,14 @@ class Api {
       final match = RegExp(r'csrftoken=([^;]+)').firstMatch(raw);
       csrf = match?.group(1);
     }
+  }
+  Future<Uint8List> epubBytes(int bookId) async {
+    final response = await client.get(Uri.parse('$server/api/v1/books/$bookId/epub/'),
+      headers: {if (cookie != null) 'Cookie': cookie!});
+    if (response.statusCode != 200 || !response.headers['content-type'].toString().contains('epub')) {
+      throw Exception('EPUB yuklab olinmadi: HTTP ${response.statusCode}');
+    }
+    return response.bodyBytes;
   }
   Future<Uint8List> pdfBytes(int bookId) async {
     final headers = <String, String>{if (cookie != null) 'Cookie': cookie!};
@@ -320,6 +329,21 @@ class _BookDetailState extends State<BookDetail> {
         onPressed: () => Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => AskBookPage(api: widget.api.request,
             bookId: widget.book['id'] as int, title: widget.book['title']))),
+      ),
+      if (widget.book['has_epub'] == true) FilledButton.icon(
+        icon: const Icon(Icons.chrome_reader_mode),
+        label: const Text('EPUB kitobni o‘qish'),
+        onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => EpubReaderPage(
+            title: widget.book['title'],
+            initialLocator: widget.book['locator'] ?? '',
+            fetchEpub: () => widget.api.epubBytes(widget.book['id'] as int),
+            onLocatorChanged: (locator) async {
+              await widget.api.request('books/${widget.book['id']}/reading/',
+                method: 'PUT', body: {'locator': locator});
+            },
+          ),
+        )),
       ),
       if (widget.book['has_pdf'] == true) FilledButton.icon(
         icon: const Icon(Icons.menu_book),
