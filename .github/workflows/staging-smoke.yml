@@ -1,0 +1,29 @@
+name: Library Smart Staging Smoke Test
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/staging_smoke.py'
+      - '.github/workflows/staging-smoke.yml'
+  workflow_dispatch:
+    inputs:
+      staging_url:
+        description: 'HTTPS staging origin'
+        type: string
+        required: false
+
+jobs:
+  staging-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check live Railway staging health and CSRF
+        env:
+          STAGING_URL: ${{ inputs.staging_url || 'https://librarysmart-api-staging.up.railway.app' }}
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            python3 scripts/staging_smoke.py && exit 0
+            echo "Staging not ready (attempt $attempt), checking again"
+            sleep 10
+          done
+          exit 1

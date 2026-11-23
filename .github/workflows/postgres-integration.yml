@@ -1,0 +1,47 @@
+name: Library Smart PostgreSQL Integration
+on:
+  pull_request:
+    paths:
+      - 'config/**'
+      - 'library/**'
+      - 'requirements.txt'
+      - '.github/workflows/postgres-integration.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: library-smart-postgres-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: library
+          POSTGRES_PASSWORD: test-password-only
+          POSTGRES_DB: library_smart_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U library -d library_smart_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DJANGO_DEBUG: "1"
+      DATABASE_URL: "postgresql://library:test-password-only@127.0.0.1:5432/library_smart_test"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install backend dependencies
+        run: pip install -r requirements.txt
+      - name: Migrate a fresh PostgreSQL database
+        run: python manage.py migrate --noinput
+      - name: Run all Django tests using PostgreSQL
+        run: python manage.py test library --noinput
+      - name: Check pending model migrations
+        run: python manage.py makemigrations --check --dry-run

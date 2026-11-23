@@ -5,6 +5,9 @@ from uuid import uuid4
 
 def pdf_path(instance,filename):
     return f"pdf/{uuid4().hex}.pdf"
+def epub_path(instance, filename):
+    return f"epub/{uuid4().hex}.epub"
+
 def audio_path(instance,filename):
     return f"audio/{uuid4().hex}.{filename.rsplit('.',1)[-1].lower()}"
 def cover_path(instance,filename):
@@ -27,6 +30,7 @@ class Book(models.Model):
     isbn=models.CharField("ISBN",max_length=40,blank=True)
     description=models.TextField("Tavsif")
     pdf=models.FileField("PDF fayl",upload_to=pdf_path,blank=True)
+    epub=models.FileField("EPUB fayl",upload_to=epub_path,blank=True)
     audio=models.FileField("Audio kitob",upload_to=audio_path,blank=True)
     audio_size=models.PositiveBigIntegerField(default=0)
     cover=models.ImageField("Kitob muqovasi",upload_to=cover_path,blank=True)
@@ -49,6 +53,7 @@ class Reading(models.Model):
     book=models.ForeignKey(Book,on_delete=models.CASCADE,related_name="readings")
     favorite=models.BooleanField(default=False)
     page=models.PositiveIntegerField(default=1)
+    locator=models.CharField(max_length=1024, blank=True)
     finished=models.BooleanField(default=False)
     updated=models.DateTimeField(auto_now=True)
     class Meta:
@@ -96,3 +101,29 @@ class QuizAttempt(models.Model):
     class Meta: ordering=["-created"]
     @property
     def percent(self): return round(100*self.score/max(1,self.total))
+
+
+class GoogleIdentity(models.Model):
+    """Verified OIDC subject is the stable identity, not a mutable email or username."""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="google_identity")
+    subject = models.CharField(max_length=128, unique=True)
+    created = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Google identity for user {self.user_id}"
+
+
+
+class AIMessage(models.Model):
+    """A user's saved book Q&A history across web and mobile."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="ai_messages")
+    book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name="ai_messages")
+    question = models.CharField(max_length=800)
+    answer = models.TextField(max_length=12000)
+    created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created"]
+
+    def __str__(self):
+        return f"AI message {self.pk} for user {self.user_id}"

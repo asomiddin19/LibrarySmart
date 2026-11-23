@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from django.core.exceptions import ImproperlyConfigured
+import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
@@ -24,7 +25,9 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [{"BACKEND":"django.template.backends.django.DjangoTemplates","DIRS":[],"APP_DIRS":True,
     "OPTIONS":{"context_processors":["django.template.context_processors.request","django.contrib.auth.context_processors.auth","django.contrib.messages.context_processors.messages"]}}]
 WSGI_APPLICATION = "config.wsgi.application"
-if os.getenv("POSTGRES_DB"):
+if os.getenv("DATABASE_URL"):
+    DATABASES = {"default": dj_database_url.parse(os.environ["DATABASE_URL"], conn_max_age=60)}
+elif os.getenv("POSTGRES_DB"):
     DATABASES={"default":{"ENGINE":"django.db.backends.postgresql","NAME":os.environ["POSTGRES_DB"],"USER":os.environ["POSTGRES_USER"],
       "PASSWORD":os.environ["POSTGRES_PASSWORD"],"HOST":os.getenv("POSTGRES_HOST","localhost"),"PORT":os.getenv("POSTGRES_PORT","5432")}}
 else:
@@ -59,12 +62,30 @@ RAILWAY_VOLUME = os.getenv("RAILWAY_VOLUME_MOUNT_PATH")
 
 if RAILWAY_VOLUME:
     DATA_DIR = Path(RAILWAY_VOLUME)
-
-    DATABASES["default"]["NAME"] = DATA_DIR / "db.sqlite3"
+    # Persistent media and Drive credentials live on the volume even if PostgreSQL is used.
+    # Never overwrite PostgreSQL NAME with a local SQLite path.
+    if DATABASES["default"]["ENGINE"] == "django.db.backends.sqlite3":
+        DATABASES["default"]["NAME"] = DATA_DIR / "db.sqlite3"
     MEDIA_ROOT = DATA_DIR / "private_media"
     DRIVE_CONFIG_DIR = DATA_DIR / ".library-cloud"
 
 
+
+# Production must use durable storage. Ephemeral SQLite can silently lose
+# users, reading history and uploads on every Railway redeploy.
+if not DEBUG and DATABASES["default"]["ENGINE"] == "django.db.backends.sqlite3" and not RAILWAY_VOLUME:
+    raise ImproperlyConfigured(
+        "Production SQLite requires RAILWAY_VOLUME_MOUNT_PATH; "
+        "otherwise configure PostgreSQL with POSTGRES_DB."
+    )
+
+# Book files must also survive redeploys. PostgreSQL preserves metadata
+# but does not make local PDF/EPUB/audio files durable.
+if not DEBUG and not RAILWAY_VOLUME and not (DRIVE_CONFIG_DIR / "config.json").is_file():
+    raise ImproperlyConfigured(
+        "Production media requires RAILWAY_VOLUME_MOUNT_PATH or a configured "
+        "LIBRARY_DRIVE_CONFIG_DIR with config.json."
+    )
 
 RAILWAY_DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN")
 

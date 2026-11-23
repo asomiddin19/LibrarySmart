@@ -1,1 +1,39 @@
-{% extends 'library/base.html' %}{% block content %}<h1>Tizimga kirish</h1><p>Elektron kutubxona boshqaruv tizimi</p><form method="post">{% csrf_token %}{{ form.as_p }}<button class="primary wide" type="submit">Kirish</button></form><p class="signup">Hisobingiz yo‘qmi? <a href="{% url 'signup' %}">Ro‘yxatdan o‘tish</a></p>{% endblock %}
+{% extends 'library/base.html' %}
+{% block content %}
+<h1>Library Smart'ga kirish</h1>
+<p>Elektron kutubxona, AI va testlar — bitta akkauntda.</p>
+{% if google_web_client_id %}
+<div id="google-signin" style="margin:16px 0"></div>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+window.addEventListener('load', () => {
+  if (!window.google?.accounts?.id) return;
+  google.accounts.id.initialize({
+    client_id: "{{ google_web_client_id|escapejs }}",
+    callback: async ({credential}) => {
+      const token = document.cookie.split('; ').find(x => x.startsWith('csrftoken='))?.split('=')[1];
+      try {
+        const response = await fetch('/api/v1/auth/google/', {
+          method: 'POST', credentials: 'same-origin',
+          headers: {'Content-Type': 'application/json', 'X-CSRFToken': token || ''},
+          body: JSON.stringify({id_token: credential})
+        });
+        const data = await response.json();
+        if (!response.ok) throw Error(data.error || 'Google kirish xatosi');
+        location.assign('{% url "dashboard" %}');
+      } catch (error) {
+        document.getElementById('google-error').textContent = error.message;
+      }
+    }
+  });
+  google.accounts.id.renderButton(document.getElementById('google-signin'),
+    {theme: 'outline', size: 'large', width: 300, text: 'continue_with'});
+});
+</script>
+<p id="google-error" role="alert"></p>
+{% endif %}
+<form method="post">{% csrf_token %}{{ form.as_p }}
+<button class="primary wide" type="submit">Login bilan kirish</button>
+</form>
+<p class="signup">Hisobingiz yo‘qmi? <a href="{% url 'signup' %}">Ro‘yxatdan o‘tish</a></p>
+{% endblock %}

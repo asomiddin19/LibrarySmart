@@ -1,0 +1,72 @@
+{% extends 'library/base.html' %}
+{% block content %}
+<div class="heading">
+  <div><a href="{% url 'detail' book.pk %}">Kitob haqida</a>
+    <h1>{{ book.title }}</h1><p>{{ book.author }} · EPUB format</p></div>
+  <a class="button" href="librarysmart://book/{{ book.pk }}">📱 Ilovada ochish</a><a class="button" href="{% url 'epub' book.pk %}" download>EPUB yuklab olish</a>
+</div>
+<section class="panel">
+  <p>Kitobdagi bo‘limlarni o‘qishingiz va shrifti o‘lchamini o‘zgartirishingiz mumkin.
+    Saqlangan o‘qish joyingiz telefon bilan sinxronlashadi.</p>
+  <div class="actions">
+    <button type="button" id="prev-page">← Oldingi</button>
+    <button type="button" id="next-page">Keyingi →</button>
+    <button type="button" id="font-small">A−</button>
+    <button type="button" id="font-large">A+</button>
+  </div>
+  <form hidden>{% csrf_token %}</form>
+  <p id="epub-status" role="status"></p>
+  <div id="epub-reader" style="min-height:70vh;max-width:850px;margin:0 auto;border:1px solid #aaa;border-radius:12px;overflow:hidden"></div>
+</section>
+<script src="https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js"></script>
+<script>
+(async () => {
+  const status = document.getElementById('epub-status');
+  if (typeof ePub !== 'function') {
+    status.textContent = 'EPUB o‘quvchi yuklanmadi. Internetni tekshiring.';
+    return;
+  }
+  const book = ePub('{% url "epub" book.pk %}', {
+    openAs: 'epub', allowScriptedContent: false
+  });
+  const rendition = book.renderTo('epub-reader', {
+    width: '100%', height: 650, spread: 'none'
+  });
+  const saved = '{{ reading.locator|escapejs }}';
+  try {
+    await rendition.display(saved || undefined);
+  } catch (_) {
+    status.textContent = 'EPUB ochilmadi. Faylni tekshiring.';
+    return;
+  }
+  document.getElementById('prev-page').addEventListener('click', () => rendition.prev());
+  document.getElementById('next-page').addEventListener('click', () => rendition.next());
+  let font = 100;
+  const setFont = d => {
+    font = Math.max(70, Math.min(180, font + d));
+    rendition.themes.fontSize(font + '%');
+  };
+  document.getElementById('font-small').addEventListener('click', () => setFont(-10));
+  document.getElementById('font-large').addEventListener('click', () => setFont(10));
+  let timer;
+  rendition.on('relocated', location => {
+    const cfi = location?.start?.cfi;
+    if (!cfi) return;
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+      try {
+        const response = await fetch('{% url "mobile_reading" book.pk %}', {
+          method: 'PUT', credentials: 'same-origin',
+          headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf},
+          body: JSON.stringify({locator: cfi})
+        });
+        status.textContent = response.ok ? 'O‘qish joyi saqlandi.' : 'O‘qish joyi saqlanmadi.';
+      } catch (_) {
+        status.textContent = 'Internet bo‘lmasa, o‘qish joyi serverga saqlanmaydi.';
+      }
+    }, 1500);
+  });
+})();
+</script>
+{% endblock %}

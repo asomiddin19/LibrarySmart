@@ -1,0 +1,63 @@
+name: Library Smart Mobile API CI
+concurrency:
+  group: library-smart-mobile-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+on:
+  pull_request:
+    paths:
+      - 'library/**'
+      - 'config/**'
+      - 'mobile/**'
+      - 'requirements.txt'
+      - '.github/workflows/mobile-api.yml'
+  workflow_dispatch:
+
+jobs:
+  django:
+    runs-on: ubuntu-latest
+    env:
+      DJANGO_DEBUG: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --upgrade pip
+      - run: pip install -r requirements.txt Pillow
+      - run: python manage.py check
+      - run: python manage.py test library
+
+  flutter:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.38.5'
+          cache: true
+      - run: flutter create --platforms android,ios .
+      - run: flutter pub get
+      - run: flutter analyze --no-fatal-infos lib
+      - name: Build Android debug APK (retry transient Maven 429)
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            flutter build apk --debug --dart-define=LIBRARY_API_BASE=https://librarysmart-api-staging.up.railway.app && exit 0
+            echo "Android build attempt $attempt failed; retrying external dependencies"
+            sleep $((attempt * 30))
+          done
+          exit 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: library-smart-android-debug
+          path: mobile/build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 7

@@ -1,0 +1,32 @@
+name: library_smart
+description: Library Smart Digital — online elektron kutubxona va testlar.
+publish_to: none
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.3.0
+  shared_preferences: ^2.3.5
+  flutter_secure_storage: ^9.2.4
+  google_sign_in: ^7.2.0
+  pdfx: ^2.9.2
+  url_launcher: ^6.3.1
+  epub_view: ^3.3.0
+  app_links: ^7.0.0
+
+# epub_view -> flutter_html 3.0.0 calls a selector API removed in html 0.15.7.
+# Temporary compatibility pin until upstream flutter_html fixes the API.
+dependency_overrides:
+  html: 0.15.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true

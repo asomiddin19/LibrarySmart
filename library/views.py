@@ -63,6 +63,8 @@ def book_edit(request,pk=None):
             except DriveUnavailable as exc:
                 form.add_error(None,str(exc))
                 return render(request,"library/form.html",ctx(request,form=form,title="Kitobni saqlash"))
+            if old and old.epub and old.epub.name != saved.epub.name:
+                transaction.on_commit(lambda: old.epub.storage.delete(old.epub.name))
             if old_pdf and old_pdf!=saved.pdf.name:
                 transaction.on_commit(lambda: saved.pdf.storage.delete(old_pdf))
                 Reading.objects.filter(book=saved,page__gt=saved.pages).update(page=saved.pages,finished=False)
@@ -81,13 +83,19 @@ def book_delete(request,pk):
     with transaction.atomic():
         audit(request,"Kitob o‘chirildi",book);book.delete()
         if name: transaction.on_commit(lambda:storage.delete(name))
+        if book.epub: transaction.on_commit(lambda:book.epub.storage.delete(book.epub.name))
         if book.audio: transaction.on_commit(lambda:book.audio.storage.delete(book.audio.name))
         if book.cover: transaction.on_commit(lambda:book.cover.storage.delete(book.cover.name))
     messages.success(request,"Kitob o‘chirildi.");return redirect("catalog")
 @login_required
 def read(request,pk):
     book=get_object_or_404(visible(request.user),pk=pk)
-    if not book.pdf: return redirect("listen",pk=pk)
+    if not book.pdf:
+        if book.epub:
+            reading,_=Reading.objects.get_or_create(book=book,user=request.user)
+            Book.objects.filter(pk=pk).update(reads=F("reads")+1)
+            return render(request,"library/read_epub.html",ctx(request,book=book,reading=reading))
+        return redirect("listen",pk=pk)
     reading,_=Reading.objects.get_or_create(book=book,user=request.user)
     Book.objects.filter(pk=pk).update(reads=F("reads")+1)
     return render(request,"library/read.html",ctx(request,book=book,reading=reading))
@@ -100,6 +108,19 @@ def pdf_response(request,pk,attachment):
     response=FileResponse(file,content_type="application/pdf",as_attachment=attachment,filename=f"{book.title}.pdf")
     response["Cache-Control"]="private, no-store"
     return response
+def epub_response(request,pk):
+    book=get_object_or_404(visible(request.user).exclude(epub=""),pk=pk)
+    try: file=book.epub.open("rb")
+    except DriveUnavailable: return HttpResponse("Google Drive vaqtincha mavjud emas.",status=503)
+    except (FileNotFoundError,ValueError): raise Http404("EPUB topilmadi")
+    response=FileResponse(file,content_type="application/epub+zip",filename=f"{book.title}.epub")
+    response["Cache-Control"]="private, no-store"
+    response["X-Content-Type-Options"]="nosniff"
+    return response
+
+@login_required
+def epub(request,pk): return epub_response(request,pk)
+
 @login_required
 @xframe_options_sameorigin
 def pdf(request,pk): return pdf_response(request,pk,False)
