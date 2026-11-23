@@ -79,6 +79,14 @@ if not DEBUG and DATABASES["default"]["ENGINE"] == "django.db.backends.sqlite3" 
         "otherwise configure PostgreSQL with POSTGRES_DB."
     )
 
+# Book files must also survive redeploys. PostgreSQL preserves metadata
+# but does not make local PDF/EPUB/audio files durable.
+if not DEBUG and not RAILWAY_VOLUME and not (DRIVE_CONFIG_DIR / "config.json").is_file():
+    raise ImproperlyConfigured(
+        "Production media requires RAILWAY_VOLUME_MOUNT_PATH or a configured "
+        "LIBRARY_DRIVE_CONFIG_DIR with config.json."
+    )
+
 RAILWAY_DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN")
 
 if RAILWAY_DOMAIN:
