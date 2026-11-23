@@ -37,3 +37,18 @@ class GoogleAuthenticationTests(TestCase):
     def test_unverified_email_rejected(self, verify):
         verify.return_value = dict(self.claims, email_verified=False)
         self.assertEqual(self.request_login().status_code, 401)
+
+    @patch.dict("os.environ", {"GOOGLE_WEB_CLIENT_ID": "public-web.apps.googleusercontent.com",
+                               "GOOGLE_OAUTH_CLIENT_IDS": "public-web.apps.googleusercontent.com,android.apps.googleusercontent.com"})
+    def test_google_public_config_enabled(self):
+        result = self.client.get("/api/v1/auth/google/config/")
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.json(), {"enabled": True, "web_client_id": "public-web.apps.googleusercontent.com"})
+        self.assertEqual(result["Cache-Control"], "no-store")
+
+    @patch.dict("os.environ", {"GOOGLE_WEB_CLIENT_ID": "wrong.apps.googleusercontent.com",
+                               "GOOGLE_OAUTH_CLIENT_IDS": "correct.apps.googleusercontent.com"})
+    def test_google_public_config_rejects_mismatched_client(self):
+        result = self.client.get("/api/v1/auth/google/config/")
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.json(), {"enabled": False, "web_client_id": None})
