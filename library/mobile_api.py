@@ -3,6 +3,12 @@ All writes require Django CSRF protection; use the /api/v1/auth/csrf/ endpoint f
 """
 import json
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
+from django.core.cache import cache
+from django.utils.crypto import get_random_string
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.http import JsonResponse
@@ -47,6 +53,44 @@ def book_data(book, user):
 @require_GET
 def csrf(request):
     return JsonResponse({"ok": True})
+
+
+@require_POST
+def signup(request):
+    obj = payload(request)
+    if obj is None:
+        return fail("JSON obyekt kerak.")
+    email, password = obj.get("email"), obj.get("password")
+    if not isinstance(email, str) or not isinstance(password, str):
+        return fail("Email va parol kerak.")
+    email = email.strip().lower()
+    if len(email) > 254 or len(email) < 5 or "@" not in email:
+        return fail("Email manzilini tekshiring.")
+    from django.core.validators import validate_email
+    try:
+        validate_email(email)
+        validate_password(password)
+    except ValidationError as exc:
+        return fail(" ".join(exc.messages))
+    # Short-lived abuse prevention; shared cache should be configured for multiple instances.
+    remote_ip = request.META.get("REMOTE_ADDR", "unknown")
+    throttle_key = "registration:" + remote_ip
+    if not cache.add(throttle_key, 1, timeout=3600):
+        try:
+            if cache.incr(throttle_key) > 10:
+                return fail("Ro‘yxatdan o‘tish limiti. Keyinroq urinib ko‘ring.", 429)
+        except ValueError:
+            cache.set(throttle_key, 1, timeout=3600)
+    if User.objects.filter(email__iexact=email).exists():
+        return fail("Bu email avval ro‘yxatdan o‘tgan.", 409)
+    try:
+        with transaction.atomic():
+            username = "reader_" + get_random_string(16)
+            user = User.objects.create_user(username=username, email=email, password=password)
+    except IntegrityError:
+        return fail("Ro‘yxatdan o‘tishda xatolik. Qayta urinib ko‘ring.", 409)
+    login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+    return JsonResponse({"id": user.pk, "username": user.username, "email": user.email}, status=201)
 
 
 @require_POST
