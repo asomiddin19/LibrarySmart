@@ -19,11 +19,27 @@ class Api {
   final client = http.Client();
   final storage = const FlutterSecureStorage();
   String baseUrl = server;
+  String googleWebClientId = const String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
   String? cookie;
   String? csrf;
   Future<void> init() async {
     baseUrl = await storage.read(key: 'server_url') ?? server;
     cookie = await storage.read(key: 'session');
+    try {
+      final oauth = await client.get(Uri.parse('$baseUrl/api/v1/auth/google/config/'));
+      if (oauth.statusCode == 200) {
+        final config = jsonDecode(oauth.body);
+        if (config is Map && config['enabled'] == true && config['web_client_id'] is String) {
+          googleWebClientId = config['web_client_id'];
+        } else {
+          googleWebClientId = '';
+        }
+      } else {
+        googleWebClientId = '';
+      }
+    } catch (_) {
+      googleWebClientId = '';
+    }
     final res = await client.get(Uri.parse('$baseUrl/api/v1/auth/csrf/'));
     final raw = res.headers['set-cookie'];
     if (raw != null && raw.contains('csrftoken=')) {
@@ -207,7 +223,7 @@ class _LoginState extends State<Login> {
   Future<void> googleLogin() async {
     setState(() { busy = true; error = ''; });
     try {
-      const clientId = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
+      final clientId = widget.api.googleWebClientId;
       if (clientId.isEmpty) throw Exception('GOOGLE_WEB_CLIENT_ID sozlanmagan.');
       final signIn = GoogleSignIn.instance;
       googleInitialization ??= signIn.initialize(serverClientId: clientId);
@@ -260,10 +276,10 @@ class _LoginState extends State<Login> {
           TextButton(onPressed: busy ? null : register,
             child: const Text('Yangi akkaunt yaratish (email + parol)')),
           const SizedBox(height: 8),
-          if (const String.fromEnvironment('GOOGLE_WEB_CLIENT_ID').isNotEmpty)
+          if (widget.api.googleWebClientId.isNotEmpty)
           OutlinedButton.icon(onPressed: busy ? null : googleLogin,
             icon: const Icon(Icons.account_circle), label: const Text('Google orqali kirish')),
-          if (const String.fromEnvironment('GOOGLE_WEB_CLIENT_ID').isEmpty)
+          if (widget.api.googleWebClientId.isEmpty)
             const Text('Google orqali kirish hozircha faollashtirilmagan.'),
         ])))));
 }
