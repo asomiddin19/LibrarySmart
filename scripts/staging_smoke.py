@@ -28,6 +28,21 @@ def check(base_url):
             if data.get(key) != value:
                 raise RuntimeError(f"{path}: expected {key}={value!r}, found {data.get(key)!r}")
         print(f"PASS {path}")
+    # Public Google OAuth discovery must never expose the OAuth secret.
+    url = base_url.rstrip("/") + "/api/v1/auth/google/config/"
+    req = urllib.request.Request(url, headers={"Accept": "application/json"})
+    with urllib.request.urlopen(req, timeout=15) as response:
+        config = json.loads(response.read(10000))
+        if response.status != 200:
+            raise RuntimeError("Google config endpoint unavailable")
+    if not isinstance(config.get("enabled"), bool):
+        raise RuntimeError("Google config enabled flag is missing")
+    if config["enabled"] and (not isinstance(config.get("web_client_id"), str)
+                              or not config["web_client_id"].endswith(".apps.googleusercontent.com")):
+        raise RuntimeError("Google config has no valid public Web Client ID")
+    if any("secret" in key.lower() or "api_key" in key.lower() for key in config):
+        raise RuntimeError("Google OAuth config exposes a sensitive key")
+    print("PASS /api/v1/auth/google/config/ (enabled=%s)" % config["enabled"])
     print("Staging API read-only smoke test passed.")
 
 
