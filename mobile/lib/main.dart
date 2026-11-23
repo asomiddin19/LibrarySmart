@@ -207,8 +207,8 @@ class _BookDetailState extends State<BookDetail> {
           if (newPage != null) 'page': newPage,
         });
       if (mounted) setState(() {
-        if (newFavorite != null) favorite = newFavorite;
-        if (newPage != null) page = newPage;
+        if (newFavorite != null) { favorite = newFavorite; }
+        if (newPage != null) { page = newPage; }
       });
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
