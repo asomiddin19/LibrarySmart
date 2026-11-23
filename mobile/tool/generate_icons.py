@@ -4,13 +4,16 @@
 Run after "flutter create" so the platform projects exist.
 """
 from pathlib import Path
+from functools import lru_cache
 from PIL import Image, ImageDraw, ImageFilter
 
 ROOT = Path(__file__).resolve().parents[1]
 
+@lru_cache(maxsize=64)
 def icon(size):
-    scale = 4
-    n = 1024 * scale
+    if size != 1024:
+        return icon(1024).resize((size, size), Image.Resampling.LANCZOS)
+    n = 1024
     img = Image.new("RGBA", (n, n), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     # Blue-to-indigo premium background, slight cool highlights.
