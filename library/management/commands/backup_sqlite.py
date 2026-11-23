@@ -54,6 +54,9 @@ class Command(BaseCommand):
             self.stdout.write("PostgreSQL uses provider-managed backups; SQLite backup not needed.")
             return
         if not volume:
+            if settings.DEBUG:
+                self.stdout.write("Development-only ephemeral SQLite: no backup required.")
+                return
             raise CommandError("Persistent Railway volume is required for SQLite backup")
         source = Path(db["NAME"]).resolve()
         root = Path(volume).resolve()
