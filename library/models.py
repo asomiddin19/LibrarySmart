@@ -5,6 +5,9 @@ from uuid import uuid4
 
 def pdf_path(instance,filename):
     return f"pdf/{uuid4().hex}.pdf"
+def epub_path(instance, filename):
+    return f"epub/{uuid4().hex}.epub"
+
 def audio_path(instance,filename):
     return f"audio/{uuid4().hex}.{filename.rsplit('.',1)[-1].lower()}"
 def cover_path(instance,filename):
@@ -27,6 +30,7 @@ class Book(models.Model):
     isbn=models.CharField("ISBN",max_length=40,blank=True)
     description=models.TextField("Tavsif")
     pdf=models.FileField("PDF fayl",upload_to=pdf_path,blank=True)
+    epub=models.FileField("EPUB fayl",upload_to=epub_path,blank=True)
     audio=models.FileField("Audio kitob",upload_to=audio_path,blank=True)
     audio_size=models.PositiveBigIntegerField(default=0)
     cover=models.ImageField("Kitob muqovasi",upload_to=cover_path,blank=True)
