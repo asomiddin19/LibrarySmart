@@ -1,0 +1,39 @@
+name: Library Smart Backend Container
+on:
+  pull_request:
+    paths:
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'railway.json'
+      - 'config/**'
+      - 'library/**'
+      - 'requirements.txt'
+      - '.github/workflows/backend-container.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: library-smart-container-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build production-style image
+        run: docker build -t library-smart-staging:test .
+      - name: Django checks inside image
+        run: docker run --rm -e DJANGO_DEBUG=1 library-smart-staging:test python manage.py check
+      - name: Migration checks inside image
+        run: docker run --rm -e DJANGO_DEBUG=1 library-smart-staging:test python manage.py makemigrations --check --dry-run
+      - name: Docker API smoke check
+        run: |
+          docker run -d --name library-smart-smoke \
+            -e DJANGO_DEBUG=1 -p 127.0.0.1:18080:8000 \
+            library-smart-staging:test
+          trap 'docker logs library-smart-smoke || true; docker rm -f library-smart-smoke || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:18080/api/v1/health/; then exit 0; fi
+            sleep 2
+          done
+          exit 1
