@@ -49,6 +49,18 @@ jobs:
       - run: flutter create --platforms android,ios .
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos lib
+      - name: Check Android source manifest only requests internet
+        run: |
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          manifest = ET.parse("android/app/src/main/AndroidManifest.xml").getroot()
+          android_name = "{http://schemas.android.com/apk/res/android}name"
+          requested = {element.get(android_name) for element in manifest.findall("uses-permission")}
+          allowed = {"android.permission.INTERNET"}
+          if requested != allowed:
+              raise SystemExit(f"Unexpected manifest permissions: {requested}")
+          print("PASS: AndroidManifest.xml declares INTERNET only")
+          PY
       - name: Build Android debug APK (retry transient Maven 429)
         shell: bash
         run: |
