@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'pdf_reader.dart';
 import 'learning_pages.dart';
 import 'library_pages.dart';
@@ -301,6 +302,18 @@ class _BookDetailState extends State<BookDetail> {
         onChanged: (value) => setState(() => page = value.round()),
         onChangeEnd: (value) => save(newPage: value.round())),
       const SizedBox(height: 12),
+      OutlinedButton.icon(
+        icon: const Icon(Icons.open_in_browser),
+        label: const Text('Web-versiyada ochish'),
+        onPressed: () async {
+          final uri = Uri.parse('$server/books/${widget.book['id']}/');
+          if (!await launchUrl(uri, mode: LaunchMode.externalApplication) && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Brauzerni ochib bo‘lmadi.')),
+            );
+          }
+        },
+      ),
       if (widget.book['has_pdf'] == true) OutlinedButton.icon(
         icon: const Icon(Icons.auto_awesome),
         label: const Text('AI bilan o‘rganish'),
