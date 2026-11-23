@@ -53,9 +53,9 @@ class BookForm(forms.ModelForm):
                 entries = archive.infolist()
                 if len(entries) > 5000 or sum(x.file_size for x in entries) > 300 * 1024 * 1024:
                     raise ValueError("Juda katta EPUB arxivi")
-                if any(x.filename.startswith("/") or ".." in x.filename.split("/") for x in entries):
+                if any(x.filename.startswith("/") or ".." in x.filename.replace("\\\\", "/").split("/") or "\\x00" in x.filename for x in entries):
                     raise ValueError("Noto‘g‘ri EPUB yo‘li")
-                if archive.read("mimetype") != b"application/epub+zip":
+                if archive.getinfo("mimetype").file_size > 64 or archive.read("mimetype") != b"application/epub+zip":
                     raise ValueError("EPUB mimetype noto‘g‘ri")
                 if "META-INF/container.xml" not in archive.namelist():
                     raise ValueError("EPUB tarkibi noto‘g‘ri")
