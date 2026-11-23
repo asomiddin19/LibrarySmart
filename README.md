@@ -73,7 +73,7 @@ Staging xizmat uchun zarur o'zgaruvchilar:
 
 `GOOGLE_OAUTH_CLIENT_IDS` faqat Google OAuth identifikatorlari, **client secret yoki foydalanuvchi paroli emas**.
 
-**Xavfsiz ishga tushish:** Docker image standart holatda `DJANGO_DEBUG=0` bilan ishlaydi. `DJANGO_SECRET_KEY` majburiy. SQLite uchun `RAILWAY_VOLUME_MOUNT_PATH` talab qilinadi, aks holda foydalanuvchi va kitob ma'lumotlari deployda yo'qolmasligi uchun server ishga tushmaydi. Railway PostgreSQL bergan `DATABASE_URL` bo'lsa doimiy PostgreSQL bazasi ishlatiladi.
+**Xavfsiz ishga tushish:** Docker image standart holatda `DJANGO_DEBUG=0` bilan ishlaydi. `DJANGO_SECRET_KEY` majburiy. SQLite uchun `RAILWAY_VOLUME_MOUNT_PATH` talab qilinadi, aks holda foydalanuvchi va kitob ma'lumotlari deployda yo'qolmasligi uchun server ishga tushmaydi. Railway PostgreSQL bergan `DATABASE_URL` bo'lsa doimiy PostgreSQL bazasi ishlatiladi. **PDF/EPUB va muqova fayllari uchun esa PostgreSQL yetarli emas:** Railway volume yoki sozlangan Google Drive saqlashi zarur. Ikkalasi ham bo'lmasa, production startup xavfsizlik uchun to'xtaydi.
 
 Railway start command namunasi: `python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT`. Bir nechta replica ishlatilsa, migratsiya ishini alohida release bosqichida bajaring.
 
