@@ -4,7 +4,7 @@ import os
 import zipfile
 from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand, CommandError
-from library.models import Book
+from library.models import Book, Quiz
 
 TITLE = "Tarmoq asoslari: IPv4 va DNS (demo)"
 LESSONS = [
@@ -62,4 +62,26 @@ class Command(BaseCommand):
         book.pages = 2
         book.published = True
         book.save()
+        quiz, _ = Quiz.objects.get_or_create(
+            title="IPv4 va DNS asoslari (demo test)",
+            book=book,
+            defaults={
+                "description": "Original kitobning ikki mavzusi bo'yicha 3 savol.",
+                "published": True,
+                "questions": [
+                    {"question": "IPv4 manzil necha bitdan iborat?",
+                     "options": ["16", "32", "64", "128"], "answer": 1,
+                     "explanation": "IPv4 32 bitli manzil tizimidir."},
+                    {"question": "Default gateway nima uchun kerak?",
+                     "options": ["DNS yaratish", "Boshqa tarmoqqa paket uzatish", "Fayl siqish", "Parol tekshirish"],
+                     "answer": 1, "explanation": "Gateway tarmoqdan tashqariga uzatadi."},
+                    {"question": "DNS A yozuvi odatda nimani bildiradi?",
+                     "options": ["IPv4 manzil", "MAC manzil", "Fayl turi", "Port raqami"],
+                     "answer": 0, "explanation": "A yozuvi IPv4 manziliga ishora qiladi."},
+                ]
+            },
+        )
+        if not quiz.published:
+            quiz.published = True
+            quiz.save(update_fields=["published"])
         self.stdout.write(self.style.SUCCESS(f"Demo book id={book.pk} {'created' if created else 'updated'}"))
