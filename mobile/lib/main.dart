@@ -204,88 +204,312 @@ class _LibraryAppState extends State<LibraryApp> {
 }
 
 class Login extends StatefulWidget {
-  final Api api; final VoidCallback onLogin;
+  final Api api;
+  final VoidCallback onLogin;
   const Login({super.key, required this.api, required this.onLogin});
-  @override State<Login> createState() => _LoginState();
+
+  @override
+  State<Login> createState() => _LoginState();
 }
+
 class _LoginState extends State<Login> {
   static Future<void>? googleInitialization;
-  final username = TextEditingController(), password = TextEditingController();
+  final username = TextEditingController();
+  final password = TextEditingController();
   final serverAddress = TextEditingController();
-  String error = ''; bool busy = false;
-  @override void initState() { super.initState(); serverAddress.text = widget.api.baseUrl; }
-  @override void dispose() { username.dispose(); password.dispose(); serverAddress.dispose(); super.dispose(); }
+  String error = '';
+  bool busy = false;
+  bool showPassword = false;
+
+  @override
+  void initState() {
+    super.initState();
+    serverAddress.text = widget.api.baseUrl;
+  }
+
+  @override
+  void dispose() {
+    username.dispose();
+    password.dispose();
+    serverAddress.dispose();
+    super.dispose();
+  }
+
   Future<void> saveServer() async {
     setState(() { busy = true; error = ''; });
     try {
       await widget.api.changeServer(serverAddress.text);
-      if (mounted) setState(() => error = 'Server ulandi. Endi login qiling.');
+      if (mounted) setState(() => error = 'Server ulandi. Endi hisobingizga kiring.');
     } catch (e) {
-      if (mounted) setState(() => error = 'Server sozlamasi: $e');
-    } finally { if (mounted) setState(() => busy = false); }
+      if (mounted) setState(() => error = 'Serverga ulanish xatosi: $e');
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
   }
+
   Future<void> googleLogin() async {
     setState(() { busy = true; error = ''; });
     try {
+      if (widget.api.csrf == null) await widget.api.init();
       final clientId = widget.api.googleWebClientId;
-      if (clientId.isEmpty) throw Exception('GOOGLE_WEB_CLIENT_ID sozlanmagan.');
+      if (clientId.isEmpty) throw Exception('Google orqali kirish hali sozlanmagan.');
       final signIn = GoogleSignIn.instance;
       googleInitialization ??= signIn.initialize(serverClientId: clientId);
       await googleInitialization;
       final account = await signIn.authenticate();
       final token = account.authentication.idToken;
       if (token == null) throw Exception('Google ID token kelmadi.');
-      await widget.api.request('auth/google/', method: 'POST', body: {'id_token': token});
+      await widget.api.request('auth/google/', method: 'POST',
+          body: {'id_token': token});
       widget.onLogin();
-    } catch (e) { if (mounted) setState(() => error = e.toString()); }
-    finally { if (mounted) setState(() => busy = false); }
+    } catch (e) {
+      if (mounted) setState(() => error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
   }
-  Future<void> register() async {
-    setState(() { busy = true; error = ''; });
-    try {
-      await widget.api.request('auth/signup/', method: 'POST',
-        body: {'email': username.text.trim(), 'password': password.text});
-      widget.onLogin();
-    } catch (e) { if (mounted) setState(() => error = e.toString()); }
-    finally { if (mounted) setState(() => busy = false); }
-  }
+
   Future<void> submit() async {
+    if (username.text.trim().isEmpty || password.text.isEmpty) {
+      setState(() => error = 'Email (yoki login) va parolni kiriting.');
+      return;
+    }
     setState(() { busy = true; error = ''; });
     try {
+      if (widget.api.csrf == null) await widget.api.init();
       await widget.api.request('auth/login/', method: 'POST',
-          body: {'username': username.text, 'password': password.text});
+          body: {'username': username.text.trim(), 'password': password.text});
       widget.onLogin();
-    } catch (e) { if (mounted) setState(() => error = e.toString()); }
-    finally { if (mounted) setState(() => busy = false); }
+    } catch (e) {
+      if (mounted) setState(() => error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
   }
-  @override Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Library Smart — Kirish')),
-    body: SafeArea(child: Center(child: SingleChildScrollView(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 440),
-      child: Padding(padding: const EdgeInsets.all(24), child: Column(
-        mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.menu_book, size: 72), const SizedBox(height: 20),
-          TextField(controller: serverAddress, autocorrect: false,
-            decoration: const InputDecoration(labelText: 'Server (HTTPS)',
-              hintText: 'https://your-staging.up.railway.app')),
-          TextButton(onPressed: busy ? null : saveServer,
-            child: const Text('Server manzilini saqlash')),
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Library Smart')),
+    body: SafeArea(child: Center(child: SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const CircleAvatar(
+            radius: 37,
+            child: Icon(Icons.auto_stories_rounded, size: 42),
+          ),
+          const SizedBox(height: 14),
+          Text('Xush kelibsiz!', style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 6),
+          const Text('Elektron kutubxonangizga kiring',
+              textAlign: TextAlign.center),
+          const SizedBox(height: 26),
+          TextField(
+            controller: username,
+            keyboardType: TextInputType.emailAddress,
+            autofillHints: const [AutofillHints.email, AutofillHints.username],
+            textInputAction: TextInputAction.next,
+            decoration: const InputDecoration(
+              labelText: 'Email yoki login',
+              prefixIcon: Icon(Icons.person_outline),
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: password,
+            obscureText: !showPassword,
+            autofillHints: const [AutofillHints.password],
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => busy ? null : submit(),
+            decoration: InputDecoration(
+              labelText: 'Parol',
+              prefixIcon: const Icon(Icons.lock_outline),
+              border: const OutlineInputBorder(),
+              suffixIcon: IconButton(
+                tooltip: showPassword ? 'Parolni yashirish' : 'Parolni ko‘rsatish',
+                icon: Icon(showPassword ? Icons.visibility_off : Icons.visibility),
+                onPressed: () => setState(() => showPassword = !showPassword),
+              ),
+            ),
+          ),
+          if (error.isNotEmpty) Padding(
+            padding: const EdgeInsets.only(top: 14),
+            child: Text(error, textAlign: TextAlign.center,
+                style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          ),
+          const SizedBox(height: 20),
+          if (busy) const CircularProgressIndicator(),
+          const SizedBox(height: 8),
+          SizedBox(width: double.infinity, child: FilledButton.icon(
+            onPressed: busy ? null : submit,
+            icon: const Icon(Icons.login),
+            label: const Text('Kirish'),
+          )),
           const SizedBox(height: 12),
-          TextField(controller: username, decoration: const InputDecoration(labelText: 'Email yoki login')),
-          TextField(controller: password, obscureText: true,
-            decoration: const InputDecoration(labelText: 'Parol')),
-          const SizedBox(height: 20), if (error.isNotEmpty) Text(error,
-            style: const TextStyle(color: Colors.red)),
-          FilledButton(onPressed: busy ? null : submit, child: const Text('Kirish')),
-          const SizedBox(height: 8),
-          TextButton(onPressed: busy ? null : register,
-            child: const Text('Yangi akkaunt yaratish (email + parol)')),
-          const SizedBox(height: 8),
-          if (widget.api.googleWebClientId.isNotEmpty)
-          OutlinedButton.icon(onPressed: busy ? null : googleLogin,
-            icon: const Icon(Icons.account_circle), label: const Text('Google orqali kirish')),
-          if (widget.api.googleWebClientId.isEmpty)
-            const Text('Google orqali kirish hozircha faollashtirilmagan.'),
-        ])))))));
+          SizedBox(width: double.infinity, child: OutlinedButton.icon(
+            icon: const Icon(Icons.person_add_alt_1),
+            label: const Text('Ro‘yxatdan o‘tish'),
+            onPressed: busy ? null : () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => RegisterPage(
+                api: widget.api, onRegistered: widget.onLogin))),
+          )),
+          if (widget.api.googleWebClientId.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            SizedBox(width: double.infinity, child: OutlinedButton.icon(
+              onPressed: busy ? null : googleLogin,
+              icon: const Icon(Icons.account_circle),
+              label: const Text('Google orqali kirish'),
+            )),
+          ],
+          const SizedBox(height: 24),
+          ExpansionTile(
+            leading: const Icon(Icons.settings_outlined),
+            title: const Text('Server sozlamalari'),
+            childrenPadding: const EdgeInsets.only(bottom: 12),
+            children: [
+              TextField(
+                controller: serverAddress,
+                autocorrect: false,
+                keyboardType: TextInputType.url,
+                decoration: const InputDecoration(
+                  labelText: 'HTTPS server manzili',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              TextButton(onPressed: busy ? null : saveServer,
+                child: const Text('Serverni tekshirish va saqlash')),
+            ],
+          ),
+        ]),
+      ),
+    ))),
+  );
+}
+
+class RegisterPage extends StatefulWidget {
+  final Api api;
+  final VoidCallback onRegistered;
+  const RegisterPage({super.key, required this.api, required this.onRegistered});
+
+  @override
+  State<RegisterPage> createState() => _RegisterPageState();
+}
+
+class _RegisterPageState extends State<RegisterPage> {
+  final email = TextEditingController();
+  final password = TextEditingController();
+  final repeatPassword = TextEditingController();
+  bool busy = false;
+  bool showPassword = false;
+  String error = '';
+
+  @override
+  void dispose() {
+    email.dispose();
+    password.dispose();
+    repeatPassword.dispose();
+    super.dispose();
+  }
+
+  Future<void> register() async {
+    final address = email.text.trim();
+    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(address)) {
+      setState(() => error = 'To‘g‘ri email manzilini kiriting.');
+      return;
+    }
+    if (password.text.length < 8) {
+      setState(() => error = 'Parol kamida 8 belgidan iborat bo‘lishi kerak.');
+      return;
+    }
+    if (password.text != repeatPassword.text) {
+      setState(() => error = 'Ikkala parol bir xil emas.');
+      return;
+    }
+    setState(() { busy = true; error = ''; });
+    try {
+      if (widget.api.csrf == null) await widget.api.init();
+      await widget.api.request('auth/signup/', method: 'POST',
+        body: {'email': address, 'password': password.text});
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      widget.onRegistered();
+    } catch (e) {
+      if (mounted) setState(() => error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Ro‘yxatdan o‘tish')),
+    body: SafeArea(child: Center(child: SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: Column(mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          const Icon(Icons.person_add_alt_1, size: 62),
+          const SizedBox(height: 12),
+          Text('Yangi akkaunt yarating',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 22),
+          TextField(
+            controller: email,
+            keyboardType: TextInputType.emailAddress,
+            autofillHints: const [AutofillHints.email],
+            decoration: const InputDecoration(
+              labelText: 'Email manzilingiz',
+              prefixIcon: Icon(Icons.mail_outline),
+              border: OutlineInputBorder(),
+            )),
+          const SizedBox(height: 14),
+          TextField(
+            controller: password,
+            obscureText: !showPassword,
+            decoration: InputDecoration(
+              labelText: 'Yangi parol',
+              prefixIcon: const Icon(Icons.lock_outline),
+              border: const OutlineInputBorder(),
+              suffixIcon: IconButton(
+                onPressed: () => setState(() => showPassword = !showPassword),
+                icon: Icon(showPassword ? Icons.visibility_off : Icons.visibility),
+              ),
+            )),
+          const SizedBox(height: 14),
+          TextField(
+            controller: repeatPassword,
+            obscureText: !showPassword,
+            decoration: const InputDecoration(
+              labelText: 'Parolni qayta kiriting',
+              prefixIcon: Icon(Icons.lock_reset),
+              border: OutlineInputBorder(),
+            )),
+          const SizedBox(height: 10),
+          const Text('Kamida 8 belgi, harf va raqamlardan foydalaning. '
+              'Juda oddiy yoki keng tarqalgan parollar qabul qilinmaydi.'),
+          if (error.isNotEmpty) Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Text(error, textAlign: TextAlign.center,
+                style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          ),
+          const SizedBox(height: 18),
+          if (busy) const Center(child: CircularProgressIndicator()),
+          FilledButton.icon(
+            onPressed: busy ? null : register,
+            icon: const Icon(Icons.check_circle_outline),
+            label: const Text('Akkaunt yaratish')),
+          const SizedBox(height: 10),
+          TextButton(
+            onPressed: busy ? null : () => Navigator.of(context).pop(),
+            child: const Text('Akkauntim bor — kirishga qaytish')),
+        ]),
+      ),
+    ))),
+  );
 }
 
 class Home extends StatefulWidget {
