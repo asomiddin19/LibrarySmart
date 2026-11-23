@@ -83,3 +83,20 @@ Production `main` o'zgartirilmagan, mavjud kitoblar hech qayerga ko'chirilmagan.
 ## APK holati
 
 GitHub Actions `Library Smart Mobile API CI` yangi PR commitlarida `flutter analyze` va `flutter build apk --debug` bajaradi. APK muvaffaqiyatli yig'ilsa, `Actions > run > Artifacts > library-smart-android-debug` orqali olish mumkin. APK `staging` server API ishga tushmaguncha production domeni bilan to'liq ishlamaydi. Bu debug-build, Play Store release emas.
+
+
+## Staging API readiness
+
+GitHub branchida `GET /api/v1/health/` endpoint mavjud: database ulansa `{"status":"ok","service":"library-smart","api":"v1"}` qaytaradi, ulanish bo'lmasa 503. Bu endpoint hech qanday foydalanuvchi ma'lumoti, kalit yoki baza tafsilotini ochmaydi.
+
+Serverni staging'ga joylashtirgach:
+
+```bash
+STAGING_URL=https://YOUR-STAGING-DOMAIN python3 scripts/staging_smoke.py
+```
+
+Script faqat **ikki xavfsiz GET** so'rovini tekshiradi: `/api/v1/health/` va `/api/v1/auth/csrf/`. Bu loyiha hali haqiqiy Android login, Google OAuth yoki Gemini bilan to'liq sinovdan o'tganini anglatmaydi.
+
+Staging yo'lga qo'yishdan oldin mustaqil volume va test bazasini tanlang. Railway production SQLite volume nusxasini mutlaqo avtomatik ko'chirmang. Migratsiyadan avval zaxira va tiklash testi zarur. `main` va ishlayotgan production Railway deploymentiga tegilmang.
+
+GitHub Actions > `Library Smart Staging Smoke Test` > Run workflow orqali staging URL kiritib ham ishga tushirish mumkin. CI dagi debug APK `LIBRARY_API_BASE` manzilini build paytida oladi; yangi staging manzil uchun alohida APK yig'ing.
