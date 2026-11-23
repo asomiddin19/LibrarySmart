@@ -1,0 +1,17 @@
+.git
+.github
+.venv
+__pycache__
+*.pyc
+*.pyo
+db.sqlite3
+db.sqlite3-*
+private_media
+.library-cloud
+.env
+.env.*
+credentials.json
+token.json
+staticfiles
+mobile
+test-results
