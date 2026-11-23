@@ -3,6 +3,8 @@ concurrency:
   group: library-smart-mobile-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 on:
+  push:
+    branches: [main]
   pull_request:
     paths:
       - 'library/**'
