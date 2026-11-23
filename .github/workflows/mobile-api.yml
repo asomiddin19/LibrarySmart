@@ -37,7 +37,15 @@ jobs:
       - run: flutter create --platforms android,ios .
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos lib
-      - run: flutter build apk --debug --dart-define=LIBRARY_API_BASE=https://librarysmart-production.up.railway.app
+      - name: Build Android debug APK (retry transient Maven 429)
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            flutter build apk --debug --dart-define=LIBRARY_API_BASE=https://librarysmart-production.up.railway.app && exit 0
+            echo "Android build attempt $attempt failed; retrying external dependencies"
+            sleep $((attempt * 30))
+          done
+          exit 1
       - uses: actions/upload-artifact@v4
         with:
           name: library-smart-android-debug
