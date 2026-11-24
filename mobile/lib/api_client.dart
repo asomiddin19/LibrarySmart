@@ -80,14 +80,34 @@ class Api {
     if (csrfMatch == null) {
       throw const FormatException('Server CSRF sessiyasini boshlamadi.');
     }
-    // Only clear the previous login after the new server is verified.
-    await storage.write(key: 'server_url', value: candidate);
-    await storage.delete(key: 'session');
-    baseUrl = candidate;
-    cookie = null;
-    csrf = csrfMatch.group(1);
-    googleWebClientId = '';
-    await init();
+    // Check the new endpoint without overwriting a working server or login.
+    // A later network failure must not strand the user on the new server.
+    final previousBase = baseUrl;
+    final previousCookie = cookie;
+    final previousCsrf = csrf;
+    final previousGoogleId = googleWebClientId;
+    try {
+      baseUrl = candidate;
+      cookie = null;
+      csrf = csrfMatch.group(1);
+      googleWebClientId = '';
+      // Only commit the switch after connectivity and CSRF are verified.
+      await storage.write(key: 'server_url', value: candidate);
+      await storage.delete(key: 'session');
+    } catch (_) {
+      baseUrl = previousBase;
+      cookie = previousCookie;
+      csrf = previousCsrf;
+      googleWebClientId = previousGoogleId;
+      // Best-effort rollback of any partially written secure storage.
+      try {
+        await storage.write(key: 'server_url', value: previousBase);
+        if (previousCookie != null) {
+          await storage.write(key: 'session', value: previousCookie);
+        }
+      } catch (_) {}
+      rethrow;
+    }
   }
   /// Loads a private cover with the active session. Never exposes session tokens
   /// in URL parameters; cap image size before handing bytes to the Flutter decoder.
