@@ -15,9 +15,11 @@ class _AskBookPageState extends State<AskBookPage> {
   String answer = '';
   bool loading = false;
   late Future<dynamic> history;
+  late Future<dynamic> capabilities;
   @override void initState() {
     super.initState();
     history = widget.api('books/${widget.bookId}/ai-history/');
+    capabilities = widget.api('ai/capabilities/');
   }
   @override void dispose() { question.dispose(); super.dispose(); }
   Future<void> ask() async {
@@ -27,7 +29,11 @@ class _AskBookPageState extends State<AskBookPage> {
       final response = await widget.api('books/${widget.bookId}/ask/',
           method: 'POST', body: {'question': question.text});
       if (mounted) setState(() {
-        answer = response['answer'] ?? 'Javob bo‘sh.';
+        final mode = response['mode']?.toString();
+        final result = response['answer']?.toString() ?? 'Javob bo‘sh.';
+        answer = mode == 'book_search'
+          ? 'KITOBDAN TOPILGAN PARCHALAR (AI emas):\\n\\n$result'
+          : result;
         history = widget.api('books/${widget.bookId}/ai-history/');
       });
     } catch (e) {
@@ -37,7 +43,24 @@ class _AskBookPageState extends State<AskBookPage> {
   @override Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: Text('AI — ${widget.title}')),
     body: ListView(padding: const EdgeInsets.all(20), children: [
-      const Text('Kitobdan savol bering. AI xato qilishi mumkin; sahifani tekshiring.'),
+      FutureBuilder<dynamic>(
+        future: capabilities,
+        builder: (context, snapshot) {
+          final aiReady = snapshot.hasData &&
+              snapshot.data['gemini_enabled'] == true;
+          return Card(
+            child: ListTile(
+              leading: Icon(aiReady ? Icons.auto_awesome : Icons.find_in_page_outlined),
+              title: Text(aiReady
+                ? 'Gemini AI yordamchi'
+                : 'Kitob matnidan qidirish'),
+              subtitle: Text(aiReady
+                ? 'AI javoblari xato bo‘lishi mumkin. Manba sahifasini tekshiring.'
+                : 'Gemini ulanmagan. Kitobdan tegishli parchalar sahifa raqami bilan topiladi.'),
+            ),
+          );
+        },
+      ),
       const SizedBox(height: 12),
       TextField(controller: question, maxLines: 3,
         decoration: const InputDecoration(border: OutlineInputBorder(),
