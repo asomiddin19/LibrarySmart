@@ -112,8 +112,10 @@ class _LibraryAppState extends State<LibraryApp> {
       : loggedIn ? Home(api: api, onLogout: () async {
           try {
             await api.request('auth/logout/', method: 'POST');
+          } catch (_) {
+            // The server may be unreachable; local sign-out still succeeds.
           } finally {
-            // A network outage must never prevent local sign-out.
+            // Never leave the session token on the device after sign-out.
             api.cookie = null;
             api.csrf = null;
             await api.storage.delete(key: 'session');
