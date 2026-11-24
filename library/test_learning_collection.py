@@ -11,6 +11,7 @@ from PIL import Image
 from .management.commands.seed_learning_collection import (
     BOOKS, pdf_bytes, epub_bytes, cover_bytes,
 )
+from .management.commands.seed_learning_quizzes import QUIZZES
 
 
 class OriginalLearningContentTests(SimpleTestCase):
@@ -42,3 +43,20 @@ class OriginalLearningContentTests(SimpleTestCase):
     def test_never_seed_production(self):
         with self.assertRaises(CommandError):
             call_command("seed_learning_collection")
+
+    def test_every_staging_course_has_three_valid_quiz_questions(self):
+        self.assertEqual(set(QUIZZES), {book["slug"] for book in BOOKS})
+        for slug, questions in QUIZZES.items():
+            with self.subTest(course=slug):
+                self.assertEqual(len(questions), 3)
+                for item in questions:
+                    self.assertEqual(len(item["options"]), 4)
+                    self.assertIs(type(item["answer"]), int)
+                    self.assertIn(item["answer"], range(4))
+                    self.assertTrue(item["explanation"])
+
+    @patch.dict("os.environ", {"LIBRARY_STAGING_DEMO": "0",
+                                "RAILWAY_ENVIRONMENT_NAME": "production"})
+    def test_never_seed_quizzes_in_production(self):
+        with self.assertRaises(CommandError):
+            call_command("seed_learning_quizzes")
