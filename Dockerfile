@@ -15,4 +15,4 @@ RUN DJANGO_DEBUG=1 python manage.py collectstatic --noinput
 
 # PORT is provided by Railway; use a non-privileged port by default.
 EXPOSE 8000
-CMD ["sh", "-c", "python manage.py backup_sqlite && python manage.py migrate --noinput && if [ \"$LIBRARY_STAGING_DEMO\" = \"1\" ]; then python manage.py seed_staging_demo && python manage.py seed_learning_collection || exit 1; fi && exec gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --timeout 120"]
+CMD ["sh", "-c", "python manage.py backup_sqlite && python manage.py migrate --noinput && if [ \"$LIBRARY_STAGING_DEMO\" = \"1\" ]; then python manage.py seed_staging_demo && python manage.py seed_learning_collection && python manage.py seed_learning_quizzes || exit 1; fi && exec gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --timeout 120"]
