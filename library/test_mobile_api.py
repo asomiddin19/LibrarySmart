@@ -129,3 +129,34 @@ class MobileApiTests(TestCase):
     def test_categories_are_private(self):
         self.client.logout()
         self.assertEqual(self.client.get('/api/v1/categories/').status_code, 401)
+
+    def test_private_audio_download_and_range(self):
+        self.book.audio.save("sample.mp3",
+            SimpleUploadedFile("sample.mp3", b"ID3" + b"abcde" * 100,
+                               content_type="audio/mpeg"))
+        self.book.audio_size = self.book.audio.size
+        self.book.save(update_fields=["audio_size"])
+        path = f"/api/v1/books/{self.book.pk}/audio/"
+        response = self.client.get(path)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("audio/", response["Content-Type"])
+        raw = b"".join(response.streaming_content)
+        self.assertTrue(raw.startswith(b"ID3"))
+        self.assertEqual(response["Cache-Control"], "private, no-store")
+        response = self.client.get(path, HTTP_RANGE="bytes=0-2")
+        self.assertEqual(response.status_code, 206)
+        self.assertEqual(b"".join(response.streaming_content), b"ID3")
+        self.assertEqual(response["Content-Range"], f"bytes 0-2/{len(raw)}")
+
+    def test_private_audio_does_not_leak_to_anonymous_or_hidden(self):
+        self.book.audio.save("sample.mp3",
+            SimpleUploadedFile("sample.mp3", b"ID3music",
+                               content_type="audio/mpeg"))
+        self.hidden.audio.save("secret.mp3",
+            SimpleUploadedFile("secret.mp3", b"ID3hidden",
+                               content_type="audio/mpeg"))
+        self.assertEqual(self.client.get(
+            f"/api/v1/books/{self.hidden.pk}/audio/").status_code, 404)
+        self.client.logout()
+        self.assertEqual(self.client.get(
+            f"/api/v1/books/{self.book.pk}/audio/").status_code, 401)
