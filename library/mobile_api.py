@@ -44,8 +44,12 @@ def payload(request):
         return None
 
 
-def book_data(book, user):
-    read = Reading.objects.filter(user=user, book=book).first()
+_READ_NOT_LOADED = object()
+
+
+def book_data(book, user, reading=_READ_NOT_LOADED):
+    read = (Reading.objects.filter(user=user, book=book).first()
+            if reading is _READ_NOT_LOADED else reading)
     return {
         "id": book.pk, "title": book.title, "author": book.author,
         "description": book.description, "category": book.category,
@@ -160,8 +164,14 @@ def books(request):
     paginator = Paginator(qs, 20)
     if page > paginator.num_pages:
         return JsonResponse({"results": [], "count": paginator.count, "page": page})
-    return JsonResponse({"results": [book_data(b, request.user) for b in paginator.page(page)],
-                         "count": paginator.count, "page": page})
+    page_books = list(paginator.page(page))
+    progress = {r.book_id: r for r in Reading.objects.filter(
+        user=request.user, book_id__in=[b.pk for b in page_books])}
+    return JsonResponse({
+        "results": [book_data(book, request.user, progress.get(book.pk))
+                    for book in page_books],
+        "count": paginator.count, "page": page,
+    })
 
 
 @api_login_required
@@ -205,7 +215,7 @@ def reading(request, pk):
 @require_GET
 def my_shelf(request):
     qs = Reading.objects.filter(user=request.user, book__in=visible(request.user)).select_related("book")
-    return JsonResponse({"results": [book_data(x.book, request.user) for x in qs[:100]]})
+    return JsonResponse({"results": [book_data(x.book, request.user, x) for x in qs[:100]]})
 
 
 @api_login_required
