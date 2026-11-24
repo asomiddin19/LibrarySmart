@@ -145,7 +145,6 @@ class _CatalogDashboardState extends State<CatalogDashboard> {
   }
 
   Widget hero(int count, dynamic currentBook) {
-    final theme = Theme.of(context);
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       padding: const EdgeInsets.all(22),
