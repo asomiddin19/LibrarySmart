@@ -70,6 +70,24 @@ class Api {
     await storage.write(key: 'server_url', value: baseUrl);
     await init();
   }
+  /// Loads a private cover with the active session. Never exposes session tokens
+  /// in URL parameters; cap image size before handing bytes to the Flutter decoder.
+  Future<Uint8List?> coverBytes(int bookId) async {
+    final response = await client.get(
+      Uri.parse('$baseUrl/books/$bookId/cover/'),
+      headers: {if (cookie != null) 'Cookie': cookie!},
+    ).timeout(requestTimeout);
+    if (response.statusCode == 404) return null;
+    if (response.statusCode != 200) {
+      throw Exception('Muqova yuklanmadi: HTTP ${response.statusCode}');
+    }
+    final mime = response.headers['content-type'] ?? '';
+    if (!mime.startsWith('image/') || response.bodyBytes.length > 6 * 1024 * 1024) {
+      throw const FormatException('Muqova formati yoki hajmi noto‘g‘ri.');
+    }
+    return response.bodyBytes;
+  }
+
   Future<Uint8List> epubBytes(int bookId) async {
     final response = await client.get(Uri.parse('$baseUrl/api/v1/books/$bookId/epub/'),
       headers: {if (cookie != null) 'Cookie': cookie!}).timeout(const Duration(seconds: 60));
