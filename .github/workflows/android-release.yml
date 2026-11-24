@@ -1,0 +1,98 @@
+name: Library Smart Signed Android Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      application_id:
+        description: "Final Android application ID (must match Google OAuth Android client)"
+        required: true
+        default: "uz.librarysmart.app"
+      api_base:
+        description: "Production HTTPS backend base URL"
+        required: true
+        default: "https://librarysmart-api-staging.up.railway.app"
+
+permissions:
+  contents: read
+
+jobs:
+  signed-android:
+    runs-on: ubuntu-latest
+    environment: android-release
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_APPLICATION_ID: ${{ inputs.application_id }}
+      RELEASE_API_BASE: ${{ inputs.api_base }}
+      GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.38.5'
+          cache: true
+      - name: Require signing configuration and HTTPS
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in ANDROID_KEYSTORE_BASE64 ANDROID_STORE_PASSWORD ANDROID_KEY_PASSWORD ANDROID_KEY_ALIAS; do
+            if [[ -z "${!key:-}" ]]; then
+              echo "::error::Configure the $key secret in GitHub environment android-release"
+              exit 1
+            fi
+          done
+          if [[ "$RELEASE_API_BASE" != https://* ]]; then
+            echo "::error::Release backend must use HTTPS"
+            exit 1
+          fi
+      - name: Generate Flutter Android project and icon
+        run: |
+          flutter create --platforms android .
+          python3 -m pip install --quiet Pillow
+          python3 tool/generate_icons.py
+          flutter pub get
+          flutter analyze --no-fatal-infos lib
+      - name: Install secret keystore and configure Gradle signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
+          python3 tool/configure_android_release.py
+      - name: Build signed APK
+        run: flutter build apk --release --dart-define=LIBRARY_API_BASE="$RELEASE_API_BASE" --dart-define=GOOGLE_WEB_CLIENT_ID="$GOOGLE_WEB_CLIENT_ID"
+      - name: Build signed Android App Bundle
+        run: flutter build appbundle --release --dart-define=LIBRARY_API_BASE="$RELEASE_API_BASE" --dart-define=GOOGLE_WEB_CLIENT_ID="$GOOGLE_WEB_CLIENT_ID"
+      - name: Verify signed outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          AAB=build/app/outputs/bundle/release/app-release.aab
+          test -s "$APK"
+          test -s "$AAB"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -n "$APKSIGNER"
+          "$APKSIGNER" verify --verbose "$APK"
+          jarsigner -verify "$AAB" >/dev/null
+          echo "Signed APK and AAB verified"
+      - name: Upload signed build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-smart-signed-android-release
+          path: |
+            mobile/build/app/outputs/flutter-apk/app-release.apk
+            mobile/build/app/outputs/bundle/release/app-release.aab
+          retention-days: 7
+          if-no-files-found: error
