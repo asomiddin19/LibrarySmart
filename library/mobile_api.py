@@ -285,6 +285,14 @@ def epub_file(request, pk):
 
 @api_login_required
 @require_GET
+def audio_file(request, pk):
+    """Preserve web audio byte-range behavior with mobile JSON auth guard."""
+    from .views import audio_file as stream_audio
+    return stream_audio(request, pk)
+
+
+@api_login_required
+@require_GET
 def quizzes(request):
     qs = visible_quizzes(request.user).filter(published=True)
     return JsonResponse({"results": [{"id": q.pk, "title": q.title, "description": q.description,
