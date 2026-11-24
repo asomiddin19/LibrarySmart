@@ -8,6 +8,7 @@ import 'epub_reader.dart';
 import 'learning_pages.dart';
 import 'library_pages.dart';
 import 'api_client.dart';
+import 'catalog_dashboard.dart';
 
 void main() => runApp(const LibraryApp());
 
@@ -401,51 +402,48 @@ class _RegisterPageState extends State<RegisterPage> {
   );
 }
 
-class Home extends StatefulWidget {
-  final Api api; final Future<void> Function() onLogout;
+class Home extends StatelessWidget {
+  final Api api;
+  final Future<void> Function() onLogout;
   const Home({super.key, required this.api, required this.onLogout});
-  @override State<Home> createState() => _HomeState();
-}
-class _HomeState extends State<Home> {
-  final search = TextEditingController();
-  int page = 1;
-  late Future<dynamic> books;
 
-  @override
-  void initState() { super.initState(); reload(); }
-  @override
-  void dispose() { search.dispose(); super.dispose(); }
-  void reload() {
-    final query = Uri.encodeQueryComponent(search.text.trim());
-    books = widget.api.request('books/?page=$page&q=$query');
-  }
-  void loadPage(int target) {
-    setState(() { page = target; reload(); });
+  void openShelf(BuildContext context) {
+    Navigator.push(context, MaterialPageRoute(
+      builder: (shelfContext) => ShelfPage(
+        api: api.request,
+        openBook: (book) => Navigator.push(shelfContext, MaterialPageRoute(
+          builder: (_) => BookDetail(api: api, book: book))),
+      )));
   }
 
-  void openSection(int index) {
-    if (index == 0) return;
-    if (index == 1) {
-      Navigator.push(context, MaterialPageRoute(
-        builder: (shelfContext) => ShelfPage(
-          api: widget.api.request,
-          openBook: (book) => Navigator.push(shelfContext, MaterialPageRoute(
-            builder: (_) => BookDetail(api: widget.api, book: book))),
-        )));
-    } else if (index == 2) {
-      Navigator.push(context, MaterialPageRoute(
-        builder: (_) => QuizListPage(api: widget.api.request)));
-    } else {
-      Navigator.push(context, MaterialPageRoute(
-        builder: (_) => ProfilePage(api: widget.api.request)));
-    }
-  }
+  void openQuiz(BuildContext context) => Navigator.push(context,
+    MaterialPageRoute(builder: (_) => QuizListPage(api: api.request)));
+
+  void openProfile(BuildContext context) => Navigator.push(context,
+    MaterialPageRoute(builder: (_) => ProfilePage(api: api.request)));
 
   @override
   Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: const Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(Icons.auto_stories_rounded),
+        SizedBox(width: 10),
+        Text('Library Smart'),
+      ]),
+      actions: [
+        IconButton(icon: const Icon(Icons.person_outline_rounded),
+          tooltip: 'Profil', onPressed: () => openProfile(context)),
+        IconButton(icon: const Icon(Icons.logout_rounded),
+          tooltip: 'Chiqish', onPressed: onLogout),
+      ],
+    ),
     bottomNavigationBar: NavigationBar(
       selectedIndex: 0,
-      onDestinationSelected: openSection,
+      onDestinationSelected: (index) {
+        if (index == 1) openShelf(context);
+        if (index == 2) openQuiz(context);
+        if (index == 3) openProfile(context);
+      },
       destinations: const [
         NavigationDestination(icon: Icon(Icons.auto_stories_outlined),
           selectedIcon: Icon(Icons.auto_stories), label: 'Kitoblar'),
@@ -457,114 +455,16 @@ class _HomeState extends State<Home> {
           selectedIcon: Icon(Icons.person), label: 'Profil'),
       ],
     ),
-    appBar: AppBar(title: const Text('Library Smart Digital'), actions: [
-      IconButton(icon: const Icon(Icons.person), tooltip: 'Profil',
-        onPressed: () => Navigator.push(context, MaterialPageRoute(
-          builder: (_) => ProfilePage(api: widget.api.request)))),
-      IconButton(
-        icon: const Icon(Icons.bookmark),
-        tooltip: 'Mening kutubxonam',
-        onPressed: () {
-          Navigator.push(context, MaterialPageRoute(
-            builder: (shelfContext) => ShelfPage(
-              api: widget.api.request,
-              openBook: (book) {
-                Navigator.push(shelfContext, MaterialPageRoute(
-                  builder: (_) => BookDetail(api: widget.api, book: book),
-                ));
-              },
-            ),
-          ));
-        },
-      ),
-      IconButton(icon: const Icon(Icons.quiz), tooltip: 'Testlar',
-        onPressed: () => Navigator.push(context, MaterialPageRoute(
-          builder: (_) => QuizListPage(api: widget.api.request)))),
-      IconButton(icon: const Icon(Icons.logout), onPressed: widget.onLogout),
-    ]),
-    body: Column(children: [
-      Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-        child: TextField(controller: search, textInputAction: TextInputAction.search,
-          onSubmitted: (_) => loadPage(1),
-          decoration: InputDecoration(labelText: 'Kitob yoki muallifni qidirish',
-            prefixIcon: const Icon(Icons.search),
-            suffixIcon: IconButton(icon: const Icon(Icons.arrow_forward),
-              onPressed: () => loadPage(1)),
-            border: const OutlineInputBorder()),
-        )),
-      Expanded(child: FutureBuilder<dynamic>(future: books, builder: (context, snapshot) {
-        if (snapshot.hasError) return Center(child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.wifi_off, size: 40),
-            const SizedBox(height: 12),
-            Text('Kitoblarni yuklab bo‘lmadi: ${snapshot.error}', textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: () => setState(reload),
-              icon: const Icon(Icons.refresh), label: const Text('Qayta urinish')),
-          ]),
-        ));
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        final data = snapshot.data;
-        final entries = data['results'] as List<dynamic>;
-        final count = data['count'] as int;
-        return RefreshIndicator(onRefresh: () async {
-          setState(reload);
-          await books;
-        }, child: ListView(children: [
-          Padding(padding: const EdgeInsets.all(16), child: Text('Elektron kitoblar ($count)',
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold))),
-          for (final item in entries) Card(
-            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-            clipBehavior: Clip.antiAlias,
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 14, vertical: 10),
-              leading: CircleAvatar(
-                radius: 28,
-                child: Icon(item['has_epub'] == true
-                  ? Icons.chrome_reader_mode_outlined
-                  : Icons.picture_as_pdf_outlined, size: 27)),
-              title: Text(item['title'] ?? '',
-                maxLines: 2, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('${item['author']} • ${item['category']}',
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 6),
-                  LinearProgressIndicator(
-                    value: ((item['page'] as int? ?? 1) /
-                      ((item['pages'] as int? ?? 1).clamp(1, 1000000)))
-                      .clamp(0.0, 1.0).toDouble()),
-                ],
-              ),
-              trailing: Icon(item['favorite'] == true
-                ? Icons.favorite : Icons.chevron_right,
-                color: item['favorite'] == true
-                  ? Theme.of(context).colorScheme.primary : null),
-              onTap: () async {
-                await Navigator.push(context, MaterialPageRoute(
-                  builder: (_) => BookDetail(api: widget.api, book: item)));
-                if (mounted) setState(reload);
-              },
-            ),
-          ),
-          if (entries.isEmpty) const ListTile(title: Text('Kitob topilmadi.')),
-          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            TextButton(onPressed: page > 1 ? () => loadPage(page - 1) : null,
-              child: const Text('Oldingi')),
-            Text('$page / ${(count / 20).ceil().clamp(1, 100000)}'),
-            TextButton(onPressed: page * 20 < count ? () => loadPage(page + 1) : null,
-              child: const Text('Keyingi')),
-          ]),
-        ]));
-      })),
-    ]),
+    body: CatalogDashboard(
+      api: api,
+      openBook: (book) => Navigator.push(context, MaterialPageRoute(
+        builder: (_) => BookDetail(api: api, book: book))),
+      openShelf: () => openShelf(context),
+      openQuizzes: () => openQuiz(context),
+    ),
   );
 }
+
 class BookDetail extends StatefulWidget {
   final Api api; final dynamic book;
   const BookDetail({super.key, required this.api, required this.book});
