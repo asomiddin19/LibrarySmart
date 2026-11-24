@@ -11,6 +11,7 @@ urlpatterns = [
     path("auth/google/config/", google_auth.google_config, name="mobile_google_config"),
     path("me/", mobile_api.me, name="mobile_me"),
     path("books/", mobile_api.books, name="mobile_books"),
+    path("categories/", mobile_api.categories, name="mobile_categories"),
     path("books/<int:pk>/", mobile_api.book_detail, name="mobile_book_detail"),
     path("books/<int:pk>/reading/", mobile_api.reading, name="mobile_reading"),
     path("books/<int:pk>/ask/", ai_chat.ask_book, name="mobile_ask_book"),
