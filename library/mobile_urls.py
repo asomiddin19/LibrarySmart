@@ -10,6 +10,7 @@ urlpatterns = [
     path("auth/google/", google_auth.google_login, name="mobile_google_login"),
     path("auth/google/config/", google_auth.google_config, name="mobile_google_config"),
     path("me/", mobile_api.me, name="mobile_me"),
+    path("auth/password/change/", mobile_api.change_password, name="mobile_password_change"),
     path("books/", mobile_api.books, name="mobile_books"),
     path("categories/", mobile_api.categories, name="mobile_categories"),
     path("books/<int:pk>/", mobile_api.book_detail, name="mobile_book_detail"),
