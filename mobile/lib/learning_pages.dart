@@ -105,6 +105,9 @@ class _QuizPageState extends State<QuizPage> {
   final Map<int, int> answers = {};
   bool busy = false;
   String result = '';
+  String submitError = '';
+  List<dynamic> feedback = [];
+  bool completed = false;
   @override void initState() {
     super.initState();
     quiz = widget.api('quizzes/${widget.quizId}/');
@@ -116,17 +119,20 @@ class _QuizPageState extends State<QuizPage> {
         const SnackBar(content: Text('Barcha savollarga javob bering.')));
       return;
     }
-    setState(() => busy = true);
+    setState(() { busy = true; submitError = ''; });
     try {
       final response = await widget.api('quizzes/${widget.quizId}/submit/',
         method: 'POST', body: {
           'version': data['version'],
           'answers': [for (var i = 0; i < questions.length; i++) answers[i]],
         });
-      if (mounted) setState(() => result =
-        'Natija: ${response['score']} / ${response['total']}');
+      if (mounted) setState(() {
+        completed = true;
+        feedback = (response['results'] as List<dynamic>? ?? []);
+        result = 'Natija: ${response['score']} / ${response['total']}';
+      });
     } catch (e) {
-      if (mounted) setState(() => result = 'Xatolik: $e');
+      if (mounted) setState(() => submitError = 'Test yuborilmadi: $e');
     } finally { if (mounted) setState(() => busy = false); }
   }
   @override Widget build(BuildContext context) => Scaffold(
@@ -146,15 +152,67 @@ class _QuizPageState extends State<QuizPage> {
               for (var j = 0; j < 4; j++) RadioListTile<int>(
                 title: Text(questions[i]['options'][j]),
                 value: j, groupValue: answers[i],
-                onChanged: result.isNotEmpty ? null : (v) => setState(() => answers[i] = v!),
+                onChanged: completed ? null : (v) => setState(() => answers[i] = v!),
               ),
             ],
           )),
         ),
-        if (result.isNotEmpty) Text(result,
-          style: Theme.of(context).textTheme.titleLarge),
-        FilledButton(onPressed: busy || result.isNotEmpty ? null : () => submit(data),
-          child: const Text('Testni yakunlash')),
+        if (submitError.isNotEmpty) Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Text(submitError, style: TextStyle(
+            color: Theme.of(context).colorScheme.error)),
+        ),
+        if (completed) ...[
+          Card(
+            color: Theme.of(context).colorScheme.primaryContainer,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(children: [
+                const Icon(Icons.emoji_events_outlined, size: 42),
+                const SizedBox(height: 8),
+                Text(result, style: Theme.of(context).textTheme.headlineSmall),
+                const Text('Natijangiz saqlandi'),
+              ]),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text('Javoblar tahlili',
+            style: Theme.of(context).textTheme.titleLarge),
+          for (var i = 0; i < feedback.length; i++)
+            Card(
+              child: ListTile(
+                leading: Icon(feedback[i]['correct'] == true
+                  ? Icons.check_circle : Icons.cancel,
+                  color: feedback[i]['correct'] == true
+                    ? Colors.green : Theme.of(context).colorScheme.error),
+                title: Text('${i + 1}. ${feedback[i]['question']}'),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Javobingiz: ${feedback[i]['chosen']}'),
+                    if (feedback[i]['correct'] != true)
+                      Text('To‘g‘ri javob: ${feedback[i]['correct_answer']}'),
+                    Text(feedback[i]['explanation']?.toString() ?? ''),
+                  ],
+                ),
+              ),
+            ),
+          OutlinedButton.icon(
+            onPressed: () => setState(() {
+              completed = false;
+              result = '';
+              feedback = [];
+              answers.clear();
+            }),
+            icon: const Icon(Icons.refresh),
+            label: const Text('Qayta ishlash'),
+          ),
+        ] else
+          FilledButton.icon(
+            onPressed: busy ? null : () => submit(data),
+            icon: const Icon(Icons.fact_check_outlined),
+            label: Text(busy ? 'Saqlanmoqda...' : 'Testni yakunlash'),
+          ),
       ]);
     }),
   );
