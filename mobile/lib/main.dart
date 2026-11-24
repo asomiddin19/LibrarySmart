@@ -4,6 +4,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:app_links/app_links.dart';
 import 'pdf_reader.dart';
+import 'audiobook_page.dart';
 import 'epub_reader.dart';
 import 'learning_pages.dart';
 import 'library_pages.dart';
@@ -529,6 +530,16 @@ class _BookDetailState extends State<BookDetail> {
         onPressed: () => Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => AskBookPage(api: widget.api.request,
             bookId: widget.book['id'] as int, title: widget.book['title']))),
+      ),
+      if (widget.book['has_audio'] == true) FilledButton.icon(
+        icon: const Icon(Icons.headphones_rounded),
+        label: const Text('Audiokitobni tinglash'),
+        onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => AudiobookPage(
+            title: widget.book['title'],
+            fetchAudio: () => widget.api.audioBytes(widget.book['id'] as int),
+          ),
+        )),
       ),
       if (widget.book['has_epub'] == true) FilledButton.icon(
         icon: const Icon(Icons.chrome_reader_mode),
