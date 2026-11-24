@@ -10,7 +10,7 @@ from django.db import IntegrityError, transaction
 from django.core.cache import cache
 from django.utils.crypto import get_random_string
 from functools import wraps
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -143,6 +143,18 @@ def me(request):
     return JsonResponse({"id": user.pk, "username": user.username,
                          "name": user.get_full_name() or user.username,
                          "email": user.email, "is_staff": user.is_staff or user.is_superuser})
+
+
+@api_login_required
+@require_GET
+def categories(request):
+    """All visible catalog categories, not just the current page."""
+    grouped = (visible(request.user).exclude(category="")
+               .values("category").annotate(count=Count("id"))
+               .order_by("category"))
+    return JsonResponse({"results": [
+        {"name": item["category"], "count": item["count"]} for item in grouped
+    ]})
 
 
 @api_login_required
