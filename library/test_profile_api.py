@@ -46,6 +46,7 @@ class MobileProfileTests(TestCase):
     def test_google_account_cannot_change_nonexistent_password(self):
         self.user.set_unusable_password()
         self.user.save(update_fields=["password"])
+        self.client.force_login(self.user)  # Simulate new Google-authenticated session.
         self.assertEqual(self.client.post(
             "/api/v1/auth/password/change/",
             json.dumps({"old_password": "x", "new_password": "NewLongPassword!973"}),
