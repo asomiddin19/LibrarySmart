@@ -191,6 +191,26 @@ class _CatalogDashboardState extends State<CatalogDashboard> {
     );
   }
 
+  String _connectionMessage(Object? error) {
+    final message = error.toString().toLowerCase();
+    if (message.contains('failed host lookup') ||
+        message.contains('socketexception') ||
+        message.contains('no address associated with hostname')) {
+      return 'Server manzili topilmadi (DNS xatosi). Internet yoki DNS '
+          'sozlamalarini tekshirib, qayta urinib ko‘ring. '
+          'Server: ${widget.api.baseUrl}';
+    }
+    if (message.contains('timeout')) {
+      return 'Server vaqtida javob bermadi. Ulanishni tekshirib, '
+          'qayta urinib ko‘ring.';
+    }
+    if (message.contains('401') || message.contains('403')) {
+      return 'Sessiya eskirgan yoki ruxsat yetarli emas. '
+          'Akkauntdan chiqib, qayta kiring.';
+    }
+    return 'Kitoblar yuklanmadi: ${error.toString()}';
+  }
+
   Widget loading() => const Center(child: CircularProgressIndicator());
 
   @override
@@ -223,10 +243,22 @@ class _CatalogDashboardState extends State<CatalogDashboard> {
                 Text('Kutubxonaga ulanishda muammo',
                   style: theme.textTheme.titleMedium, textAlign: TextAlign.center),
                 const SizedBox(height: 10),
-                Text('${snapshot.error}', textAlign: TextAlign.center),
+                Text(
+                  _connectionMessage(snapshot.error),
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 12),
                 FilledButton.icon(onPressed: refresh,
                   icon: const Icon(Icons.refresh), label: const Text('Qayta urinish')),
+                const SizedBox(height: 12),
+                Text(
+                  'Wi-Fi va mobil internetni almashtirib ko‘ring. '
+                  'Telefon brauzerida server manzilini ochib tekshiring. '
+                  'Agar ikkala tarmoqda ham ochilmasa, server domeni yoki DNS '
+                  'bilan muammo bo‘lishi mumkin.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall,
+                ),
               ]),
             ));
           }
