@@ -150,6 +150,18 @@ def main():
         raise RuntimeError("Quiz attempt not persisted")
     print("PASS quiz submission, scoring, and saved result")
 
+    capability = call("/api/v1/ai/capabilities/")
+    if capability.get("book_search_enabled") is not True:
+        raise RuntimeError("Source-cited PDF search is not available")
+    print("PASS AI capability discovery")
+    if capability.get("gemini_enabled") is False:
+        found = call(f"/api/v1/books/{book_id}/ask/", "POST",
+                     {"question": "DNS domen nomi IP manzil bilan qanday boglanadi?"})
+        if found.get("mode") != "book_search" or found.get("generated_by_ai") is not False:
+            raise RuntimeError("Missing-key PDF search falsely claimed AI")
+        if "[Sahifa " not in found.get("answer", ""):
+            raise RuntimeError("PDF search did not cite its original book page")
+        print("PASS authenticated extractive book search with cited pages")
     call("/api/v1/auth/logout/", "POST", {})
     call("/api/v1/me/", expected=401)
     print("PASS logout and unauthorized response")
