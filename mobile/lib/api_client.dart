@@ -63,11 +63,30 @@ class Api {
     if (health is! Map || health['status'] != 'ok' || health['api'] != 'v1') {
       throw const FormatException('Manzilda mos Library Smart API topilmadi.');
     }
+    // Verify the authentication endpoint before switching. A healthy public
+    // endpoint alone does not prove that login can start on the new server.
+    final authResponse = await client.get(
+      Uri.parse('$candidate/api/v1/auth/csrf/'),
+    ).timeout(requestTimeout);
+    if (authResponse.statusCode != 200) {
+      throw FormatException(
+        'Server autentifikatsiya API mavjud emas (HTTP ${authResponse.statusCode}).',
+      );
+    }
+    final csrfCookie = authResponse.headers['set-cookie'];
+    final csrfMatch = csrfCookie == null
+        ? null
+        : RegExp(r'csrftoken=([^;]+)').firstMatch(csrfCookie);
+    if (csrfMatch == null) {
+      throw const FormatException('Server CSRF sessiyasini boshlamadi.');
+    }
+    // Only clear the previous login after the new server is verified.
+    await storage.write(key: 'server_url', value: candidate);
+    await storage.delete(key: 'session');
     baseUrl = candidate;
     cookie = null;
-    csrf = null;
-    await storage.delete(key: 'session');
-    await storage.write(key: 'server_url', value: baseUrl);
+    csrf = csrfMatch.group(1);
+    googleWebClientId = '';
     await init();
   }
   /// Loads a private cover with the active session. Never exposes session tokens
@@ -149,9 +168,25 @@ class Api {
         await storage.write(key: 'session', value: cookie!);
       }
     }
+    // Logout and other successful endpoints may legitimately return no body.
+    if (full.statusCode == 204 || (full.statusCode < 400 && full.body.trim().isEmpty)) {
+      return null;
+    }
     dynamic data;
-    try { data = jsonDecode(full.body); } catch (_) { throw Exception('Server JSON javob qaytarmadi (HTTP ${full.statusCode}).'); }
-    if (full.statusCode >= 400) throw Exception(data['error'] ?? 'HTTP ${full.statusCode}');
+    try {
+      data = jsonDecode(full.body);
+    } catch (_) {
+      if (full.statusCode >= 400) {
+        throw Exception('Server xatosi: HTTP ${full.statusCode}');
+      }
+      throw Exception('Server JSON javob qaytarmadi (HTTP ${full.statusCode}).');
+    }
+    if (full.statusCode >= 400) {
+      final message = data is Map && data['error'] is String
+          ? data['error'] as String
+          : 'HTTP ${full.statusCode}';
+      throw Exception(message);
+    }
     return data;
   }
 }
