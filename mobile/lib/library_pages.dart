@@ -133,26 +133,213 @@ class _ResultsPageState extends State<ResultsPage> {
   );
 }
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   final ApiCall api;
   const ProfilePage({super.key, required this.api});
-  @override Widget build(BuildContext context) => Scaffold(
+  @override State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  late Future<dynamic> profile;
+  final firstName = TextEditingController();
+  final lastName = TextEditingController();
+  bool editing = false;
+  bool saving = false;
+  String message = '';
+
+  @override
+  void initState() {
+    super.initState();
+    refresh();
+  }
+
+  void refresh() { profile = widget.api('me/'); }
+
+  @override
+  void dispose() {
+    firstName.dispose();
+    lastName.dispose();
+    super.dispose();
+  }
+
+  Future<void> save() async {
+    setState(() { saving = true; message = ''; });
+    try {
+      await widget.api('me/', method: 'PATCH', body: {
+        'first_name': firstName.text.trim(), 'last_name': lastName.text.trim(),
+      });
+      if (mounted) setState(() {
+        editing = false;
+        message = 'Profil muvaffaqiyatli saqlandi.';
+        refresh();
+      });
+    } catch (e) {
+      if (mounted) setState(() => message = 'Xatolik: $e');
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Profilim')),
-    body: FutureBuilder<dynamic>(future: api('me/'), builder: (context, snapshot) {
-      if (snapshot.hasError) return Center(child: Text('${snapshot.error}'));
-      if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-      final user = snapshot.data;
-      return ListView(padding: const EdgeInsets.all(16), children: [
-        const CircleAvatar(radius: 32, child: Icon(Icons.person, size: 32)),
-        const SizedBox(height: 16),
-        ListTile(title: Text(user['name'] ?? ''), subtitle: const Text('Foydalanuvchi')),
-        ListTile(title: Text(user['email'] ?? ''), subtitle: const Text('Email')),
-        ListTile(title: Text(user['username'] ?? ''), subtitle: const Text('Login')),
-        FilledButton.tonalIcon(
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => ResultsPage(api: api))),
-          icon: const Icon(Icons.fact_check), label: const Text('Test natijalarim')),
-      ]);
-    }),
+    body: FutureBuilder<dynamic>(
+      future: profile,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) return Center(child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text('Profil yuklanmadi: ${snapshot.error}'),
+            const SizedBox(height: 12),
+            FilledButton.icon(onPressed: () => setState(refresh),
+              icon: const Icon(Icons.refresh), label: const Text('Qayta urinish')),
+          ]),
+        ));
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        final user = snapshot.data as Map<String, dynamic>;
+        return ListView(padding: const EdgeInsets.all(20), children: [
+          Center(child: CircleAvatar(radius: 43,
+            child: Text((user['first_name']?.toString().isNotEmpty == true
+                ? user['first_name'].toString()[0]
+                : user['username'].toString()[0]).toUpperCase(),
+              style: Theme.of(context).textTheme.headlineLarge))),
+          const SizedBox(height: 10),
+          Text(user['name']?.toString() ?? '',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 22),
+          Card(child: Column(children: [
+            ListTile(leading: const Icon(Icons.mail_outline),
+              title: Text(user['email']?.toString() ?? ''),
+              subtitle: const Text('Elektron pochta')),
+            ListTile(leading: const Icon(Icons.account_circle_outlined),
+              title: Text(user['username']?.toString() ?? ''),
+              subtitle: const Text('Login')),
+          ])),
+          const SizedBox(height: 18),
+          if (editing) ...[
+            TextField(controller: firstName,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(), labelText: 'Ism')),
+            const SizedBox(height: 12),
+            TextField(controller: lastName,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(), labelText: 'Familiya')),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: saving ? null : save,
+              icon: const Icon(Icons.save_outlined),
+              label: Text(saving ? 'Saqlanmoqda...' : 'Saqlash')),
+            TextButton(onPressed: saving ? null : () => setState(() => editing = false),
+              child: const Text('Bekor qilish')),
+          ] else
+            FilledButton.tonalIcon(
+              onPressed: () => setState(() {
+                firstName.text = user['first_name']?.toString() ?? '';
+                lastName.text = user['last_name']?.toString() ?? '';
+                editing = true;
+                message = '';
+              }),
+              icon: const Icon(Icons.edit_outlined),
+              label: const Text('Profilni tahrirlash')),
+          if (message.isNotEmpty)
+            Padding(padding: const EdgeInsets.all(12),
+              child: Text(message, textAlign: TextAlign.center)),
+          const SizedBox(height: 12),
+          if (user['has_password'] == true)
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => ChangePasswordPage(api: widget.api))),
+              icon: const Icon(Icons.lock_reset_outlined),
+              label: const Text('Parolni o‘zgartirish')),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => ResultsPage(api: widget.api))),
+            icon: const Icon(Icons.fact_check_outlined),
+            label: const Text('Test natijalarim')),
+        ]);
+      },
+    ),
+  );
+}
+
+class ChangePasswordPage extends StatefulWidget {
+  final ApiCall api;
+  const ChangePasswordPage({super.key, required this.api});
+  @override State<ChangePasswordPage> createState() => _ChangePasswordPageState();
+}
+
+class _ChangePasswordPageState extends State<ChangePasswordPage> {
+  final oldPassword = TextEditingController();
+  final newPassword = TextEditingController();
+  final confirmPassword = TextEditingController();
+  bool saving = false;
+  String error = '';
+
+  @override
+  void dispose() {
+    oldPassword.dispose();
+    newPassword.dispose();
+    confirmPassword.dispose();
+    super.dispose();
+  }
+
+  Future<void> submit() async {
+    if (newPassword.text != confirmPassword.text) {
+      setState(() => error = 'Yangi parollar bir-biriga mos emas.');
+      return;
+    }
+    setState(() { saving = true; error = ''; });
+    try {
+      await widget.api('auth/password/change/', method: 'POST', body: {
+        'old_password': oldPassword.text,
+        'new_password': newPassword.text,
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Parolingiz yangilandi.')));
+      Navigator.pop(context);
+    } catch (e) {
+      if (mounted) setState(() => error = '$e');
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Parolni o‘zgartirish')),
+    body: SafeArea(child: ListView(
+      padding: const EdgeInsets.all(22),
+      children: [
+        const Icon(Icons.lock_reset, size: 55),
+        const SizedBox(height: 22),
+        TextField(
+          controller: oldPassword, obscureText: true,
+          decoration: const InputDecoration(border: OutlineInputBorder(),
+            labelText: 'Joriy parol')),
+        const SizedBox(height: 14),
+        TextField(
+          controller: newPassword, obscureText: true,
+          decoration: const InputDecoration(border: OutlineInputBorder(),
+            labelText: 'Yangi parol')),
+        const SizedBox(height: 14),
+        TextField(
+          controller: confirmPassword, obscureText: true,
+          decoration: const InputDecoration(border: OutlineInputBorder(),
+            labelText: 'Yangi parolni tasdiqlang')),
+        const SizedBox(height: 12),
+        const Text('Kuchli, boshqa hisoblarda ishlatilmagan parol tanlang.'),
+        if (error.isNotEmpty) Padding(
+          padding: const EdgeInsets.all(12),
+          child: Text(error,
+            style: TextStyle(color: Theme.of(context).colorScheme.error))),
+        const SizedBox(height: 18),
+        FilledButton.icon(onPressed: saving ? null : submit,
+          icon: const Icon(Icons.check),
+          label: Text(saving ? 'Saqlanmoqda...' : 'Parolni yangilash')),
+      ],
+    )),
   );
 }
