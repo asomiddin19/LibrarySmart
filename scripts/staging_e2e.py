@@ -90,7 +90,7 @@ def main():
     cover_id = originals[0]["id"]
     with opener.open(base + f"/books/{cover_id}/cover/", timeout=20) as image_response:
         img = image_response.read(20000)
-        if image_response.status != 200 or not img.startswith(b"\\xff\\xd8"):
+        if image_response.status != 200 or not img.startswith(b"\xff\xd8"):
             raise RuntimeError("Staging sample book cover is not a valid JPEG")
     print("PASS authenticated book cover")
     demo = next((item for item in catalog["results"] if item["title"] == "Tarmoq asoslari: IPv4 va DNS (demo)"), None)
