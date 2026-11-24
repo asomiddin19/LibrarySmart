@@ -88,6 +88,26 @@ class Api {
     return response.bodyBytes;
   }
 
+  /// Private audiobook data. Refuse unexpectedly large downloads on phones.
+  /// Only the authenticated API is used; no session tokens are placed in URLs.
+  Future<Uint8List> audioBytes(int bookId) async {
+    final response = await client.get(
+      Uri.parse('$baseUrl/api/v1/books/$bookId/audio/'),
+      headers: {if (cookie != null) 'Cookie': cookie!},
+    ).timeout(const Duration(seconds: 90));
+    if (response.statusCode != 200) {
+      throw Exception('Audiokitob yuklanmadi: HTTP ${response.statusCode}');
+    }
+    final contentType = response.headers['content-type'] ?? '';
+    if (!contentType.startsWith('audio/')) {
+      throw const FormatException('Server audiokitob formatini qaytarmadi.');
+    }
+    if (response.bodyBytes.length > 30 * 1024 * 1024) {
+      throw const FormatException('Audio 30 MB limitdan katta. Web-pleerdan foydalaning.');
+    }
+    return response.bodyBytes;
+  }
+
   Future<Uint8List> epubBytes(int bookId) async {
     final response = await client.get(Uri.parse('$baseUrl/api/v1/books/$bookId/epub/'),
       headers: {if (cookie != null) 'Cookie': cookie!}).timeout(const Duration(seconds: 60));
