@@ -71,3 +71,39 @@ class MobileApiTests(TestCase):
             json.dumps({'email': 'reader@example.test', 'password': 'StrongPassword!2406'}),
             content_type='application/json')
         self.assertEqual(response.status_code, 409)
+
+    def test_catalog_query_count_remains_bounded_with_many_books(self):
+        """Each listed book must not trigger an additional Reading query."""
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        for index in range(20):
+            item = Book.objects.create(
+                title=f'Networking {index}', author='Test author',
+                category='IT', description='Performance test',
+                published=True, pages=12)
+            Reading.objects.create(
+                user=self.user, book=item, page=2, favorite=index == 0)
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get('/api/v1/books/?page=1')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()['results']), 20)
+        self.assertLessEqual(len(queries), 8,
+            f'Catalog query regression: {len(queries)} queries')
+
+    def test_shelf_query_count_remains_bounded_with_many_books(self):
+        """Shelf should use select_related and reuse its Reading objects."""
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        for index in range(20):
+            item = Book.objects.create(
+                title=f'History {index}', author='Test author',
+                category='IT', description='Shelf perf test',
+                published=True, pages=12)
+            Reading.objects.create(
+                user=self.user, book=item, page=3, favorite=True)
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get('/api/v1/shelf/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()['results']), 20)
+        self.assertLessEqual(len(queries), 6,
+            f'Shelf query regression: {len(queries)} queries')
