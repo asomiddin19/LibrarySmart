@@ -192,10 +192,15 @@ class _LibraryAppState extends State<LibraryApp> {
     theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.indigo),
     home: !ready ? const Scaffold(body: Center(child: CircularProgressIndicator()))
       : loggedIn ? Home(api: api, onLogout: () async {
-          await api.request('auth/logout/', method: 'POST');
-          api.cookie = null;
-          await api.storage.delete(key: 'session');
-          setState(() => loggedIn = false);
+          try {
+            await api.request('auth/logout/', method: 'POST');
+          } finally {
+            // A network outage must never prevent local sign-out.
+            api.cookie = null;
+            api.csrf = null;
+            await api.storage.delete(key: 'session');
+            if (mounted) setState(() => loggedIn = false);
+          }
         }) : Login(api: api, onLogin: () {
           setState(() => loggedIn = true);
           WidgetsBinding.instance.addPostFrameCallback((_) => openPendingBook());
@@ -534,8 +539,40 @@ class _HomeState extends State<Home> {
     setState(() { page = target; reload(); });
   }
 
+  void openSection(int index) {
+    if (index == 0) return;
+    if (index == 1) {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (shelfContext) => ShelfPage(
+          api: widget.api.request,
+          openBook: (book) => Navigator.push(shelfContext, MaterialPageRoute(
+            builder: (_) => BookDetail(api: widget.api, book: book))),
+        )));
+    } else if (index == 2) {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => QuizListPage(api: widget.api.request)));
+    } else {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => ProfilePage(api: widget.api.request)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
+    bottomNavigationBar: NavigationBar(
+      selectedIndex: 0,
+      onDestinationSelected: openSection,
+      destinations: const [
+        NavigationDestination(icon: Icon(Icons.auto_stories_outlined),
+          selectedIcon: Icon(Icons.auto_stories), label: 'Kitoblar'),
+        NavigationDestination(icon: Icon(Icons.bookmark_border),
+          selectedIcon: Icon(Icons.bookmark), label: 'Javonim'),
+        NavigationDestination(icon: Icon(Icons.quiz_outlined),
+          selectedIcon: Icon(Icons.quiz), label: 'Testlar'),
+        NavigationDestination(icon: Icon(Icons.person_outline),
+          selectedIcon: Icon(Icons.person), label: 'Profil'),
+      ],
+    ),
     appBar: AppBar(title: const Text('Library Smart Digital'), actions: [
       IconButton(icon: const Icon(Icons.person), tooltip: 'Profil',
         onPressed: () => Navigator.push(context, MaterialPageRoute(
@@ -594,12 +631,39 @@ class _HomeState extends State<Home> {
         }, child: ListView(children: [
           Padding(padding: const EdgeInsets.all(16), child: Text('Elektron kitoblar ($count)',
             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold))),
-          for (final item in entries) ListTile(
-            title: Text(item['title'] ?? ''),
-            subtitle: Text('${item['author']} • ${item['category']}'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(context, MaterialPageRoute(
-              builder: (_) => BookDetail(api: widget.api, book: item))),
+          for (final item in entries) Card(
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            clipBehavior: Clip.antiAlias,
+            child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14, vertical: 10),
+              leading: CircleAvatar(
+                radius: 28,
+                child: Icon(item['has_epub'] == true
+                  ? Icons.chrome_reader_mode_outlined
+                  : Icons.picture_as_pdf_outlined, size: 27)),
+              title: Text(item['title'] ?? '',
+                maxLines: 2, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${item['author']} • ${item['category']}',
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 6),
+                  LinearProgressIndicator(
+                    value: ((item['page'] as int? ?? 1) /
+                      ((item['pages'] as int? ?? 1).clamp(1, 1000000)))
+                      .clamp(0.0, 1.0)),
+                ],
+              ),
+              trailing: Icon(item['favorite'] == true
+                ? Icons.favorite : Icons.chevron_right,
+                color: item['favorite'] == true
+                  ? Theme.of(context).colorScheme.primary : null),
+              onTap: () => Navigator.push(context, MaterialPageRoute(
+                builder: (_) => BookDetail(api: widget.api, book: item))),
+            ),
           ),
           if (entries.isEmpty) const ListTile(title: Text('Kitob topilmadi.')),
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
