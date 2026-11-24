@@ -15,6 +15,7 @@ urlpatterns = [
     path("books/<int:pk>/", mobile_api.book_detail, name="mobile_book_detail"),
     path("books/<int:pk>/reading/", mobile_api.reading, name="mobile_reading"),
     path("books/<int:pk>/ask/", ai_chat.ask_book, name="mobile_ask_book"),
+    path("ai/capabilities/", ai_chat.capabilities, name="mobile_ai_capabilities"),
     path("books/<int:pk>/ai-history/", ai_chat.history, name="mobile_ai_history"),
     path("books/<int:pk>/pdf/", mobile_api.pdf_file, name="mobile_pdf"),
     path("books/<int:pk>/epub/", mobile_api.epub_file, name="mobile_epub"),
