@@ -20,6 +20,7 @@ urlpatterns = [
     path("books/<int:pk>/ai-history/", ai_chat.history, name="mobile_ai_history"),
     path("books/<int:pk>/pdf/", mobile_api.pdf_file, name="mobile_pdf"),
     path("books/<int:pk>/epub/", mobile_api.epub_file, name="mobile_epub"),
+    path("books/<int:pk>/audio/", mobile_api.audio_file, name="mobile_audio"),
     path("shelf/", mobile_api.my_shelf, name="mobile_shelf"),
     path("quizzes/", mobile_api.quizzes, name="mobile_quizzes"),
     path("quizzes/<int:pk>/", mobile_api.quiz_detail, name="mobile_quiz_detail"),
