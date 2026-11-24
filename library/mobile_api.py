@@ -137,12 +137,50 @@ def signout(request):
 
 
 @api_login_required
-@require_GET
+@require_http_methods(["GET", "PATCH"])
 def me(request):
     user = request.user
+    if request.method == "PATCH":
+        obj = payload(request)
+        if obj is None or any(key not in ("first_name", "last_name") for key in obj):
+            return fail("Profil uchun first_name yoki last_name kerak.")
+        for field in ("first_name", "last_name"):
+            if field in obj:
+                value = obj[field]
+                if not isinstance(value, str) or len(value.strip()) > 150:
+                    return fail("Ism va familiya 150 belgidan oshmasligi kerak.")
+                setattr(user, field, value.strip())
+        user.save(update_fields=["first_name", "last_name"])
     return JsonResponse({"id": user.pk, "username": user.username,
                          "name": user.get_full_name() or user.username,
-                         "email": user.email, "is_staff": user.is_staff or user.is_superuser})
+                         "first_name": user.first_name, "last_name": user.last_name,
+                         "email": user.email, "has_password": user.has_usable_password(),
+                         "is_staff": user.is_staff or user.is_superuser})
+
+
+@api_login_required
+@require_POST
+def change_password(request):
+    from django.contrib.auth import update_session_auth_hash
+    user = request.user
+    if not user.has_usable_password():
+        return fail("Bu akkaunt Google orqali yaratilgan. Parol mavjud emas.", 409)
+    obj = payload(request)
+    if obj is None:
+        return fail("JSON obyekt kerak.")
+    old, new = obj.get("old_password"), obj.get("new_password")
+    if not isinstance(old, str) or not isinstance(new, str):
+        return fail("Eski va yangi parol kerak.")
+    if not user.check_password(old):
+        return fail("Joriy parol noto‘g‘ri.", 403)
+    try:
+        validate_password(new, user=user)
+    except ValidationError as exc:
+        return fail(" ".join(exc.messages))
+    user.set_password(new)
+    user.save(update_fields=["password"])
+    update_session_auth_hash(request, user)
+    return JsonResponse({"ok": True})
 
 
 @api_login_required
