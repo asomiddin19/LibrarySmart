@@ -103,9 +103,9 @@ class _AudiobookPageState extends State<AudiobookPage> {
               min: 0,
               max: duration.inMilliseconds > 0
                 ? duration.inMilliseconds.toDouble() : 1,
-              value: position.inMilliseconds.toDouble().clamp(0,
+              value: position.inMilliseconds.toDouble().clamp(0.0,
                 duration.inMilliseconds > 0
-                  ? duration.inMilliseconds.toDouble() : 1),
+                  ? duration.inMilliseconds.toDouble() : 1.0).toDouble(),
               onChanged: duration > Duration.zero
                 ? (value) => player.seek(Duration(milliseconds: value.toInt()))
                 : null,
