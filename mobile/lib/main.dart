@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:app_links/app_links.dart';
@@ -10,6 +11,25 @@ import 'learning_pages.dart';
 import 'library_pages.dart';
 import 'api_client.dart';
 import 'catalog_dashboard.dart';
+
+final ValueNotifier<ThemeMode> libraryTheme = ValueNotifier(ThemeMode.system);
+
+Future<void> updateLibraryTheme(ThemeMode mode) async {
+  libraryTheme.value = mode;
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString('library_theme_mode', mode.name);
+}
+
+Widget libraryThemeAction() => ValueListenableBuilder<ThemeMode>(
+  valueListenable: libraryTheme,
+  builder: (context, mode, _) => IconButton(
+    tooltip: mode == ThemeMode.dark ? 'Yorug‘ rejim' : 'Tungi rejim',
+    icon: Icon(mode == ThemeMode.dark
+      ? Icons.light_mode_outlined : Icons.dark_mode_outlined),
+    onPressed: () => updateLibraryTheme(
+      mode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark),
+  ),
+);
 
 void main() => runApp(const LibraryApp());
 
@@ -62,6 +82,12 @@ class _LibraryAppState extends State<LibraryApp> {
   }
   Future<void> boot() async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedMode = prefs.getString('library_theme_mode');
+      libraryTheme.value = ThemeMode.values.firstWhere(
+        (mode) => mode.name == savedMode, orElse: () => ThemeMode.system);
+    } catch (_) { /* System theme remains available. */ }
+    try {
       await api.init();
       await api.request('me/');
       loggedIn = true;
@@ -72,10 +98,16 @@ class _LibraryAppState extends State<LibraryApp> {
     }
   }
   @override
-  Widget build(BuildContext context) => MaterialApp(
+  Widget build(BuildContext context) => ValueListenableBuilder<ThemeMode>(
+    valueListenable: libraryTheme,
+    builder: (context, mode, _) => MaterialApp(
     navigatorKey: navigatorKey,
     title: 'Library Smart',
-    theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.indigo),
+    themeMode: mode,
+    theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.indigo,
+      brightness: Brightness.light),
+    darkTheme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.teal,
+      brightness: Brightness.dark),
     home: !ready ? const Scaffold(body: Center(child: CircularProgressIndicator()))
       : loggedIn ? Home(api: api, onLogout: () async {
           try {
@@ -91,6 +123,7 @@ class _LibraryAppState extends State<LibraryApp> {
           setState(() => loggedIn = true);
           WidgetsBinding.instance.addPostFrameCallback((_) => openPendingBook());
         }),
+    ),
   );
 }
 
@@ -180,7 +213,8 @@ class _LoginState extends State<Login> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Library Smart')),
+    appBar: AppBar(title: const Text('Library Smart'),
+      actions: [libraryThemeAction()]),
     body: SafeArea(child: Center(child: SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: ConstrainedBox(
@@ -432,6 +466,7 @@ class Home extends StatelessWidget {
         Text('Library Smart'),
       ]),
       actions: [
+        libraryThemeAction(),
         IconButton(icon: const Icon(Icons.person_outline_rounded),
           tooltip: 'Profil', onPressed: () => openProfile(context)),
         IconButton(icon: const Icon(Icons.logout_rounded),
