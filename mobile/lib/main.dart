@@ -514,7 +514,9 @@ class _BookDetailState extends State<BookDetail> {
         label: const Text('Web-versiyada ochish'),
         onPressed: () async {
           final uri = Uri.parse('${widget.api.baseUrl}/books/${widget.book['id']}/');
-          if (!await launchUrl(uri, mode: LaunchMode.externalApplication) && mounted) {
+          final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+          if (!mounted) return;
+          if (!opened) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Brauzerni ochib bo‘lmadi.')),
             );
