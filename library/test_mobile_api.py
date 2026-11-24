@@ -107,3 +107,25 @@ class MobileApiTests(TestCase):
         self.assertEqual(len(response.json()['results']), 20)
         self.assertLessEqual(len(queries), 6,
             f'Shelf query regression: {len(queries)} queries')
+
+    def test_categories_include_only_visible_books_and_counts(self):
+        Book.objects.create(title='Linux', author='Demo', category='Linux',
+            description='Linux manual', published=True, pages=3)
+        Book.objects.create(title='Hidden linux', author='Demo', category='Linux',
+            description='Private', published=False, pages=3)
+        Book.objects.create(title='Networking', author='Demo', category='Networking',
+            description='Network manual', published=True, pages=3)
+        response = self.client.get('/api/v1/categories/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['results'], [
+            {'name': 'IT', 'count': 1}, {'name': 'Linux', 'count': 1},
+            {'name': 'Networking', 'count': 1},
+        ])
+        response = self.client.get('/api/v1/books/?category=Linux')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['count'], 1)
+        self.assertEqual(response.json()['results'][0]['title'], 'Linux')
+
+    def test_categories_are_private(self):
+        self.client.logout()
+        self.assertEqual(self.client.get('/api/v1/categories/').status_code, 401)
