@@ -22,12 +22,14 @@ class _CatalogDashboardState extends State<CatalogDashboard> {
   final coverLoads = <int, Future<Uint8List?>>{};
   final knownCategories = <String>{};
   late Future<dynamic> books;
+  late Future<dynamic> categoriesFuture;
   String category = '';
   int page = 1;
 
   @override
   void initState() {
     super.initState();
+    categoriesFuture = widget.api.request('categories/');
     load();
   }
 
@@ -264,18 +266,31 @@ class _CatalogDashboardState extends State<CatalogDashboard> {
                   child: Text('Kategoriyalar',
                     style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w800))),
-                SizedBox(height: 48, child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  children: [
-                    for (final c in ['', ...knownCategories])
-                      Padding(padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: ChoiceChip(
-                          label: Text(c.isEmpty ? 'Barchasi' : c),
-                          selected: category == c,
-                          onSelected: (_) => chooseCategory(c),
-                        )),
-                  ],
+                SizedBox(height: 48, child: FutureBuilder<dynamic>(
+                  future: categoriesFuture,
+                  builder: (context, categoriesSnapshot) {
+                    final items = (categoriesSnapshot.hasData
+                      ? (categoriesSnapshot.data['results'] as List<dynamic>? ?? [])
+                      : <dynamic>[]);
+                    final names = items.isNotEmpty
+                      ? items.map((item) => item['name'].toString()).toList()
+                      : knownCategories.toList()..sort();
+                    return ListView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      children: [
+                        for (final c in ['', ...names])
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: ChoiceChip(
+                              label: Text(c.isEmpty ? 'Barchasi' : c),
+                              selected: category == c,
+                              onSelected: (_) => chooseCategory(c),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
                 )),
                 Padding(padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
                   child: Row(children: [
