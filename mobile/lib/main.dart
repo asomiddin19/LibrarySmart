@@ -654,15 +654,18 @@ class _HomeState extends State<Home> {
                   LinearProgressIndicator(
                     value: ((item['page'] as int? ?? 1) /
                       ((item['pages'] as int? ?? 1).clamp(1, 1000000)))
-                      .clamp(0.0, 1.0)),
+                      .clamp(0.0, 1.0).toDouble()),
                 ],
               ),
               trailing: Icon(item['favorite'] == true
                 ? Icons.favorite : Icons.chevron_right,
                 color: item['favorite'] == true
                   ? Theme.of(context).colorScheme.primary : null),
-              onTap: () => Navigator.push(context, MaterialPageRoute(
-                builder: (_) => BookDetail(api: widget.api, book: item))),
+              onTap: () async {
+                await Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => BookDetail(api: widget.api, book: item)));
+                if (mounted) setState(reload);
+              },
             ),
           ),
           if (entries.isEmpty) const ListTile(title: Text('Kitob topilmadi.')),
