@@ -80,6 +80,24 @@ class Api {
     if (csrfMatch == null) {
       throw const FormatException('Server CSRF sessiyasini boshlamadi.');
     }
+    // Resolve the new server's Google OAuth configuration before committing the
+    // switch. A Google sign-in button must not retain a different server's ID.
+    String newGoogleWebClientId = '';
+    try {
+      final googleResponse = await client.get(
+        Uri.parse('$candidate/api/v1/auth/google/config/'),
+      ).timeout(requestTimeout);
+      if (googleResponse.statusCode == 200) {
+        final config = jsonDecode(googleResponse.body);
+        if (config is Map &&
+            config['enabled'] == true &&
+            config['web_client_id'] is String) {
+          newGoogleWebClientId = config['web_client_id'] as String;
+        }
+      }
+    } catch (_) {
+      // Google OAuth may be disabled; email/password login must still work.
+    }
     // Check the new endpoint without overwriting a working server or login.
     // A later network failure must not strand the user on the new server.
     final previousBase = baseUrl;
@@ -90,7 +108,7 @@ class Api {
       baseUrl = candidate;
       cookie = null;
       csrf = csrfMatch.group(1);
-      googleWebClientId = '';
+      googleWebClientId = newGoogleWebClientId;
       // Only commit the switch after connectivity and CSRF are verified.
       await storage.write(key: 'server_url', value: candidate);
       await storage.delete(key: 'session');
