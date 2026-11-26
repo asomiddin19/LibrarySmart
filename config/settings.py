@@ -91,6 +91,10 @@ RAILWAY_DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN")
 
 if RAILWAY_DOMAIN:
     ALLOWED_HOSTS.append(RAILWAY_DOMAIN)
+    # Railway readiness probes use their own host and internal HTTP.
+    # Exempt only the non-sensitive health endpoint; all user traffic stays HTTPS.
+    ALLOWED_HOSTS.append("healthcheck.railway.app")
+    SECURE_REDIRECT_EXEMPT = [r"^api/v1/health/$"]
     CSRF_TRUSTED_ORIGINS = [f"https://{RAILWAY_DOMAIN}"]
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
