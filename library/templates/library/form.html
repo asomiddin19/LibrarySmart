@@ -1,10 +1,11 @@
-{% extends 'library/base.html' %}{% block title %}{{ title }}{% endblock %}
+{% extends 'library/base.html' %}{% block title %}{{ title }}
+{% endblock %}
 {% block content %}
 <section class="panel formpanel {% if form.pdf %}book-upload-panel{% endif %}">
   <div class="heading"><div><h1>{{ title }}</h1>
-  {% if form.pdf %}<p>Kitob ma’lumotlarini kiriting, katalogni tanlang va PDF, EPUB yoki audio fayl yuklang.</p>{% endif %}
+  {% if form.pdf %}<p>Kitob haqida ma’lumot kiriting va PDF, EPUB yoki audio faylni tanlang.</p>{% endif %}
   </div></div>
-  <form method="post" enctype="multipart/form-data">{% csrf_token %}
+  <form id="book-upload-form" method="post" enctype="multipart/form-data">{% csrf_token %}
   {% if form.pdf %}
     {% if form.non_field_errors %}<div class="upload-error" role="alert">{{ form.non_field_errors }}</div>{% endif %}
     <div class="upload-section"><h2>📚 Kitob haqida</h2><div class="upload-field-grid">
@@ -20,7 +21,7 @@
       {% endfor %}
     </div></div>
     <div class="upload-section"><h2>📂 Kitob fayllari</h2>
-      <p class="upload-hint">Kamida bitta format yuklang. Bitta kitobga bir nechta formatni ham biriktirish mumkin.</p>
+      <p class="upload-hint">Kamida bitta format tanlang. Bitta kitobga bir nechta formatni ham biriktirish mumkin. Fayl tanlangach uning nomi va hajmi ko‘rsatiladi.</p>
       <div class="upload-format-grid">
       {% for field in form %}
         {% if field.name == "pdf" or field.name == "epub" or field.name == "audio" %}
@@ -29,6 +30,8 @@
           <label for="{{ field.id_for_label }}">{{ field.label }}</label>
           <small>{% if field.name == "pdf" %}50 MB gacha{% elif field.name == "epub" %}50 MB gacha{% else %}150 MB gacha{% endif %}</small>
           {{ field }}
+          <small class="chosen-file" data-for="{{ field.id_for_label }}" aria-live="polite"></small>
+          {% if field.name == "pdf" %}<small class="upload-hint">Agar PDF rad etilsa, uni Chrome’da ochib Ctrl+P → Save as PDF orqali qayta saqlashingiz mumkin.</small>{% endif %}
           {% if field.errors %}<div class="upload-error" role="alert">{{ field.errors }}</div>{% endif %}
           {% if field.value %}<small>Joriy fayl: {{ field.value }}</small>{% endif %}
         </div>
@@ -51,8 +54,71 @@
   {% else %}
     {{ form.as_p }}
   {% endif %}
-  <div class="actions upload-actions"><button class="primary" type="submit">💾 Saqlash</button>
+  <div class="actions upload-actions"><button class="primary" id="save-book-button" type="submit">💾 Kitobni saqlash</button>
     {% if user.is_authenticated %}<a class="button" href="{% url 'dashboard' %}">Bekor qilish</a>
     {% else %}<a class="button" href="{% url 'login' %}">Kirish</a>{% endif %}
   </div></form>
-</section>{% endblock %}
+</section><script>
+document.addEventListener("DOMContentLoaded", function () {
+  const form = document.getElementById("book-upload-form");
+  if (!form || !document.querySelector(".book-upload-panel")) return;
+  const limits = {pdf: 50, epub: 50, audio: 150, cover: 5};
+  const button = document.getElementById("save-book-button");
+  const errorBox = document.createElement("p");
+  errorBox.className = "upload-error upload-client-error";
+  errorBox.setAttribute("role", "alert");
+  errorBox.hidden = true;
+  if (button) button.parentElement.insertBefore(errorBox, button);
+  const formats = ["pdf", "epub", "audio"];
+  const inputs = Array.from(form.querySelectorAll("input[type=file]"));
+  inputs.forEach(function (input) {
+    const target = document.querySelector('.chosen-file[data-for="' + input.id + '"]');
+    function showSelection() {
+      const file = input.files && input.files[0];
+      if (!file) { if (target) target.textContent = ""; return; }
+      const size = (file.size / 1048576).toFixed(2);
+      const max = limits[input.name];
+      if (target) {
+        target.textContent = file.name + " — " + size + " MB" + (max && file.size > max*1048576 ? " (hajmi katta)" : " ✓");
+        target.classList.toggle("upload-error", Boolean(max && file.size > max*1048576));
+      }
+      errorBox.hidden = true;
+    }
+    input.addEventListener("change", showSelection);
+    showSelection();
+  });
+  form.addEventListener("submit", function (event) {
+    const over = inputs.find(function (input) {
+      const max = limits[input.name];
+      return max && input.files.length && input.files[0].size > max*1048576;
+    });
+    if (over) {
+      event.preventDefault();
+      errorBox.textContent = "Tanlangan " + over.name.toUpperCase() + " fayli belgilangan hajmdan katta. Kichikroq fayl tanlang.";
+      errorBox.hidden = false;
+      errorBox.scrollIntoView({behavior:"smooth",block:"center"});
+      return;
+    }
+    const editing = Boolean(form.querySelector('input[type=file][name=pdf]')?.dataset.existing);
+    const hasNew = formats.some(function (name) {
+      const input = form.querySelector('input[type=file][name="' + name + '"]');
+      return input && input.files.length;
+    });
+    // Editing may retain existing files; server-side validation remains authoritative.
+    if (!hasNew && !form.action.includes("/edit/") && document.querySelector(".upload-format-grid")) {
+      event.preventDefault();
+      errorBox.textContent = "Kamida bitta PDF, EPUB yoki audio faylni tanlang.";
+      errorBox.hidden = false;
+      errorBox.scrollIntoView({behavior:"smooth",block:"center"});
+      return;
+    }
+    if (button) {
+      button.disabled = true;
+      button.textContent = "⏳ Fayl yuklanmoqda, sahifani yopmang...";
+    }
+  });
+  const firstError = document.querySelector(".book-upload-panel .upload-error:not([hidden])");
+  if (firstError) firstError.scrollIntoView({behavior:"smooth",block:"center"});
+});
+</script>
+{% endblock %}
