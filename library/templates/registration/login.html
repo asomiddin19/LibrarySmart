@@ -33,7 +33,36 @@ window.addEventListener('load', () => {
 <p id="google-error" role="alert"></p>
 {% endif %}
 <form method="post">{% csrf_token %}{{ form.as_p }}
+<div class="password-visibility-action">
+  <button type="button" id="toggle-login-password" aria-pressed="false"
+          aria-controls="id_password" aria-label="Parolni ko‘rsatish">
+    <span id="login-password-icon" aria-hidden="true">👁️</span>
+    <span id="login-password-label">Parolni ko‘rsatish</span>
+  </button>
+</div>
 <button class="primary wide" type="submit">Login bilan kirish</button>
 </form>
+<style>
+.password-visibility-action {display:flex;justify-content:flex-end;margin:-4px 0 16px}
+.password-visibility-action button {display:inline-flex;align-items:center;gap:8px;font-size:14px;min-height:40px}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const password = document.querySelector('form[method="post"] input[name="password"]');
+  const toggle = document.getElementById('toggle-login-password');
+  if (!password || !toggle) { if (toggle) toggle.hidden = true; return; }
+  const label = document.getElementById('login-password-label');
+  const icon = document.getElementById('login-password-icon');
+  toggle.setAttribute('aria-controls', password.id || 'id_password');
+  toggle.addEventListener('click', function () {
+    const visible = password.type === 'password';
+    password.type = visible ? 'text' : 'password';
+    label.textContent = visible ? 'Parolni yashirish' : 'Parolni ko‘rsatish';
+    icon.textContent = visible ? '🙈' : '👁️';
+    toggle.setAttribute('aria-pressed', String(visible));
+    toggle.setAttribute('aria-label', label.textContent);
+  });
+});
+</script>
 <p class="signup">Hisobingiz yo‘qmi? <a href="{% url 'signup' %}">Ro‘yxatdan o‘tish</a></p>
 {% endblock %}
