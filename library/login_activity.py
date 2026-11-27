@@ -1,11 +1,12 @@
-"""Minimal privacy-conscious sign-in audit for Library Smart.
+"""Successful login metadata stored in the existing, staff-only audit log.
 
-Records only successful authentications. Never stores passwords, session keys or
-precise location. Requests are not counted as "online" just because of a login.
+Avoid new migrations on existing production SQLite. No IPs, passwords,
+session identifiers, or inferred geographic locations are stored.
 """
+import json
 from django.contrib.auth.signals import user_logged_in
 from django.dispatch import receiver
-from .models import LoginEvent
+from .models import AuditLog
 
 
 def device_label(user_agent):
@@ -41,9 +42,13 @@ def record_successful_login(sender, request, user, **kwargs):
     if request is None:
         return
     agent = request.META.get("HTTP_USER_AGENT", "")[:250]
-    LoginEvent.objects.create(
-        user=user,
-        email_at_login=user.email or "",
-        device=device_label(agent),
-        browser=browser_label(agent),
+    metadata = {
+        "email": (user.email or "")[:120],
+        "device": device_label(agent),
+        "browser": browser_label(agent),
+    }
+    AuditLog.objects.create(
+        actor=user,
+        action="Muvaffaqiyatli kirish",
+        details=json.dumps(metadata, ensure_ascii=False),
     )
