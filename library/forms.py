@@ -104,8 +104,11 @@ class BookForm(forms.ModelForm):
                 # recognize a real document before we accept the upload.
                 uploaded.seek(0)
                 try:
-                    with pdfium.PdfDocument(uploaded.read()) as document:
+                    document = pdfium.PdfDocument(uploaded.read())
+                    try:
                         count = len(document)
+                    finally:
+                        document.close()
                 except Exception:
                     raise forms.ValidationError(
                         "PDF ochilmadi. Fayl shikastlangan yoki parollangan bo‘lishi "
