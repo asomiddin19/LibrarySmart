@@ -10,7 +10,7 @@ from django.db import IntegrityError, transaction
 from django.core.cache import cache
 from django.utils.crypto import get_random_string
 from functools import wraps
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -44,8 +44,12 @@ def payload(request):
         return None
 
 
-def book_data(book, user):
-    read = Reading.objects.filter(user=user, book=book).first()
+_READ_NOT_LOADED = object()
+
+
+def book_data(book, user, reading=_READ_NOT_LOADED):
+    read = (Reading.objects.filter(user=user, book=book).first()
+            if reading is _READ_NOT_LOADED else reading)
     return {
         "id": book.pk, "title": book.title, "author": book.author,
         "description": book.description, "category": book.category,
@@ -133,12 +137,62 @@ def signout(request):
 
 
 @api_login_required
-@require_GET
+@require_http_methods(["GET", "PATCH"])
 def me(request):
     user = request.user
+    if request.method == "PATCH":
+        obj = payload(request)
+        if obj is None or any(key not in ("first_name", "last_name") for key in obj):
+            return fail("Profil uchun first_name yoki last_name kerak.")
+        for field in ("first_name", "last_name"):
+            if field in obj:
+                value = obj[field]
+                if not isinstance(value, str) or len(value.strip()) > 150:
+                    return fail("Ism va familiya 150 belgidan oshmasligi kerak.")
+                setattr(user, field, value.strip())
+        user.save(update_fields=["first_name", "last_name"])
     return JsonResponse({"id": user.pk, "username": user.username,
                          "name": user.get_full_name() or user.username,
-                         "email": user.email, "is_staff": user.is_staff or user.is_superuser})
+                         "first_name": user.first_name, "last_name": user.last_name,
+                         "email": user.email, "has_password": user.has_usable_password(),
+                         "is_staff": user.is_staff or user.is_superuser})
+
+
+@api_login_required
+@require_POST
+def change_password(request):
+    from django.contrib.auth import update_session_auth_hash
+    user = request.user
+    if not user.has_usable_password():
+        return fail("Bu akkaunt Google orqali yaratilgan. Parol mavjud emas.", 409)
+    obj = payload(request)
+    if obj is None:
+        return fail("JSON obyekt kerak.")
+    old, new = obj.get("old_password"), obj.get("new_password")
+    if not isinstance(old, str) or not isinstance(new, str):
+        return fail("Eski va yangi parol kerak.")
+    if not user.check_password(old):
+        return fail("Joriy parol noto‘g‘ri.", 403)
+    try:
+        validate_password(new, user=user)
+    except ValidationError as exc:
+        return fail(" ".join(exc.messages))
+    user.set_password(new)
+    user.save(update_fields=["password"])
+    update_session_auth_hash(request, user)
+    return JsonResponse({"ok": True})
+
+
+@api_login_required
+@require_GET
+def categories(request):
+    """All visible catalog categories, not just the current page."""
+    grouped = (visible(request.user).exclude(category="")
+               .values("category").annotate(count=Count("id"))
+               .order_by("category"))
+    return JsonResponse({"results": [
+        {"name": item["category"], "count": item["count"]} for item in grouped
+    ]})
 
 
 @api_login_required
@@ -147,6 +201,11 @@ def books(request):
     qs = visible(request.user).order_by("-created")
     search = request.GET.get("q", "").strip()[:100]
     category = request.GET.get("category", "").strip()[:100]
+    book_format = request.GET.get("format", "all").strip().lower()
+    if book_format not in ("all", "pdf", "epub", "audio"):
+        return fail("Kitob formati noto‘g‘ri.")
+    if book_format != "all":
+        qs = qs.exclude(**{book_format: ""})
     if search:
         qs = qs.filter(Q(title__icontains=search) | Q(author__icontains=search) |
                        Q(description__icontains=search))
@@ -160,8 +219,14 @@ def books(request):
     paginator = Paginator(qs, 20)
     if page > paginator.num_pages:
         return JsonResponse({"results": [], "count": paginator.count, "page": page})
-    return JsonResponse({"results": [book_data(b, request.user) for b in paginator.page(page)],
-                         "count": paginator.count, "page": page})
+    page_books = list(paginator.page(page))
+    progress = {r.book_id: r for r in Reading.objects.filter(
+        user=request.user, book_id__in=[b.pk for b in page_books])}
+    return JsonResponse({
+        "results": [book_data(book, request.user, progress.get(book.pk))
+                    for book in page_books],
+        "count": paginator.count, "page": page,
+    })
 
 
 @api_login_required
@@ -205,7 +270,7 @@ def reading(request, pk):
 @require_GET
 def my_shelf(request):
     qs = Reading.objects.filter(user=request.user, book__in=visible(request.user)).select_related("book")
-    return JsonResponse({"results": [book_data(x.book, request.user) for x in qs[:100]]})
+    return JsonResponse({"results": [book_data(x.book, request.user, x) for x in qs[:100]]})
 
 
 @api_login_required
@@ -221,6 +286,14 @@ def pdf_file(request, pk):
 def epub_file(request, pk):
     from .views import epub_response
     return epub_response(request, pk)
+
+
+@api_login_required
+@require_GET
+def audio_file(request, pk):
+    """Preserve web audio byte-range behavior with mobile JSON auth guard."""
+    from .views import audio_file as stream_audio
+    return stream_audio(request, pk)
 
 
 @api_login_required

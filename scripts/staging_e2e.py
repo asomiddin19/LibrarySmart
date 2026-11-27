@@ -78,6 +78,21 @@ def main():
         print("PASS", path)
 
     catalog = call("/api/v1/books/")
+    # A real, visible catalog should contain the seven original PDF/EPUB
+    # lessons and their private JPEG covers, not placeholder-only cards.
+    originals = [item for item in catalog["results"] if
+                 item["title"].endswith("(demo)") and item["has_cover"]]
+    if len(originals) < 7:
+        raise RuntimeError("Staging original catalog is incomplete: fewer than 7 covered lessons")
+    if any(not item["has_pdf"] or not item["has_epub"] for item in originals):
+        raise RuntimeError("Staging original lesson is missing a real PDF or EPUB")
+    print(f"PASS {len(originals)} covered original PDF/EPUB study materials")
+    cover_id = originals[0]["id"]
+    with opener.open(base + f"/books/{cover_id}/cover/", timeout=20) as image_response:
+        img = image_response.read(20000)
+        if image_response.status != 200 or not img.startswith(b"\xff\xd8"):
+            raise RuntimeError("Staging sample book cover is not a valid JPEG")
+    print("PASS authenticated book cover")
     demo = next((item for item in catalog["results"] if item["title"] == "Tarmoq asoslari: IPv4 va DNS (demo)"), None)
     if not demo or not demo["has_pdf"] or not demo["has_epub"]:
         raise RuntimeError("Staging demo PDF+EPUB is missing from the authenticated catalog")
@@ -135,6 +150,18 @@ def main():
         raise RuntimeError("Quiz attempt not persisted")
     print("PASS quiz submission, scoring, and saved result")
 
+    capability = call("/api/v1/ai/capabilities/")
+    if capability.get("book_search_enabled") is not True:
+        raise RuntimeError("Source-cited PDF search is not available")
+    print("PASS AI capability discovery")
+    if capability.get("gemini_enabled") is False:
+        found = call(f"/api/v1/books/{book_id}/ask/", "POST",
+                     {"question": "DNS domen nomi IP manzil bilan qanday boglanadi?"})
+        if found.get("mode") != "book_search" or found.get("generated_by_ai") is not False:
+            raise RuntimeError("Missing-key PDF search falsely claimed AI")
+        if "[Sahifa " not in found.get("answer", ""):
+            raise RuntimeError("PDF search did not cite its original book page")
+        print("PASS authenticated extractive book search with cited pages")
     call("/api/v1/auth/logout/", "POST", {})
     call("/api/v1/me/", expected=401)
     print("PASS logout and unauthorized response")
