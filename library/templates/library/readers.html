@@ -1,1 +1,13 @@
-{% extends 'library/base.html' %}{% block content %}<div class="heading"><div><h1>Kitobxonlar</h1><p>Ro‘yxatdan o‘tgan foydalanuvchilar va rollari.</p></div><a class="button primary" href="{% url 'signup' %}">+ Kitobxon qo‘shish</a></div><section class="panel tablewrap"><table><thead><tr><th>Ism</th><th>Login</th><th>Email</th><th>Rol</th></tr></thead><tbody>{% for reader in readers %}<tr><td>{{ reader.get_full_name|default:reader.username }}</td><td>{{ reader.username }}</td><td>{{ reader.email }}</td><td>{% if reader.is_superuser %}Administrator{% elif is_admin %}<form method="post" action="{% url 'set_role' reader.pk %}" class="actions">{% csrf_token %}<select name="role" aria-label="Rol"><option value="student">Talaba</option><option value="librarian" {% for group in reader.groups.all %}{% if group.name == 'Kutubxonachi' %}selected{% endif %}{% endfor %}>Kutubxonachi</option></select><button>Saqlash</button></form>{% else %}{% for group in reader.groups.all %}{{ group.name }} {% empty %}Talaba{% endfor %}{% endif %}</td></tr>{% endfor %}</tbody></table></section>{% endblock %}
+{% extends 'library/base.html' %}{% block content %}<div class="heading"><div><h1>Kitobxonlar</h1><p>Ro‘yxatdan o‘tgan foydalanuvchilar va rollari.</p></div><a class="button primary" href="{% url 'signup' %}">+ Kitobxon qo‘shish</a></div><section class="panel tablewrap"><table><thead><tr><th>Ism</th><th>Login</th><th>Email</th><th>Rol</th></tr></thead><tbody>{% for reader in readers %}<tr><td>{{ reader.get_full_name|default:reader.username }}</td><td>{{ reader.username }}</td><td>{{ reader.email }}</td><td>{% if reader.is_superuser %}Administrator{% elif is_admin %}<form method="post" action="{% url 'set_role' reader.pk %}" class="actions">{% csrf_token %}<select name="role" aria-label="Rol"><option value="student">Talaba</option><option value="librarian" {% for group in reader.groups.all %}{% if group.name == 'Kutubxonachi' %}selected{% endif %}{% endfor %}>Kutubxonachi</option></select><button>Saqlash</button></form>{% else %}{% for group in reader.groups.all %}{{ group.name }} {% empty %}Talaba{% endfor %}{% endif %}</td></tr>{% endfor %}</tbody></table></section><section class="panel">
+  <div class="heading"><div><h2>Oxirgi kirgan qurilmalar</h2>
+  <p>Faqat muvaffaqiyatli kirishlar. Bu ro‘yxat foydalanuvchi ayni paytda onlaynligini bildirmaydi.</p></div></div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Vaqt</th><th>Foydalanuvchi</th><th>Email</th><th>Qurilma</th><th>Brauzer</th></tr></thead>
+    <tbody>{% for event in recent_logins %}<tr>
+      <td>{{ event.created|date:"d.m.Y H:i" }}</td>
+      <td>{{ event.username }}</td>
+      <td>{{ event.email|default:"—" }}</td>
+      <td>{{ event.device }}</td><td>{{ event.browser }}</td>
+    </tr>{% empty %}<tr><td colspan="5">Hozircha qayd etilgan kirishlar yo‘q.</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>{% endblock %}

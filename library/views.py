@@ -5,6 +5,7 @@ from django.core.exceptions import PermissionDenied
 from django.db.models import Avg,Count,Q,Sum,F
 from django.http import FileResponse,Http404,StreamingHttpResponse,HttpResponse
 import re
+import json
 from django.shortcuts import render,redirect,get_object_or_404
 from django.views.decorators.http import require_POST
 from django.views.decorators.clickjacking import xframe_options_sameorigin
@@ -75,7 +76,7 @@ def book_edit(request,pk=None):
                 transaction.on_commit(lambda:old.cover.storage.delete(old.cover.name))
             audit(request,"Elektron kitob saqlandi",saved);messages.success(request,"Kitob saqlandi.");return redirect("detail",pk=saved.pk)
     else: form=BookForm(instance=book)
-    return render(request,"library/form.html",ctx(request,form=form,title="Kitobni tahrirlash" if pk else "Yangi PDF kitob"))
+    return render(request,"library/form.html",ctx(request,form=form,title="Kitobni tahrirlash" if pk else "Yangi elektron kitob"))
 @login_required
 @require_POST
 def book_delete(request,pk):
@@ -230,7 +231,18 @@ def signup(request):
     return render(request,"library/form.html",ctx(request,form=form,title="Ro‘yxatdan o‘tish"))
 @login_required
 def readers(request):
-    guard(request);return render(request,"library/readers.html",ctx(request,readers=User.objects.order_by("username").prefetch_related("groups")))
+    guard(request)
+    readers_qs = User.objects.order_by("username").prefetch_related("groups")
+    recent_logins = []
+    for event in AuditLog.objects.filter(action="Muvaffaqiyatli kirish").select_related("actor")[:100]:
+        try:
+            metadata = json.loads(event.details)
+        except (TypeError, ValueError):
+            metadata = {}
+        recent_logins.append({"created":event.created,"username":event.actor.username if event.actor else "O‘chirilgan foydalanuvchi",
+                              "email":metadata.get("email",""),"device":metadata.get("device","Noma’lum"),
+                              "browser":metadata.get("browser","Noma’lum")})
+    return render(request,"library/readers.html",ctx(request,readers=readers_qs,recent_logins=recent_logins))
 @login_required
 @require_POST
 def set_role(request,pk):
