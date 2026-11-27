@@ -75,7 +75,7 @@ def book_edit(request,pk=None):
                 transaction.on_commit(lambda:old.cover.storage.delete(old.cover.name))
             audit(request,"Elektron kitob saqlandi",saved);messages.success(request,"Kitob saqlandi.");return redirect("detail",pk=saved.pk)
     else: form=BookForm(instance=book)
-    return render(request,"library/form.html",ctx(request,form=form,title="Kitobni tahrirlash" if pk else "Yangi PDF kitob"))
+    return render(request,"library/form.html",ctx(request,form=form,title="Kitobni tahrirlash" if pk else "Yangi elektron kitob"))
 @login_required
 @require_POST
 def book_delete(request,pk):
