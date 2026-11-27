@@ -141,6 +141,31 @@ class SignupForm(UserCreationForm):
     class Meta:
         model=User
         fields=["username","first_name","last_name","email","password1","password2"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["username"].label = "Foydalanuvchi nomi (login)"
+        self.fields["username"].help_text = "150 belgigacha. Lotin harflari, raqamlar va @ . + - _ ishlatish mumkin."
+        self.fields["username"].error_messages.update({
+            "unique": "Bu login band. Boshqa foydalanuvchi nomini tanlang.",
+            "required": "Foydalanuvchi nomini kiriting.",
+        })
+        self.fields["password1"].help_text = (
+            "Kamida 8 ta belgi kiriting. Parol ism yoki login bilan o‘xshash, "
+            "juda oddiy yoki faqat raqamlardan iborat bo‘lmasin."
+        )
+        self.fields["password2"].help_text = "Parolni qayta kiriting."
+        self.fields["password2"].error_messages["required"] = "Parolni tasdiqlang."
+        self.fields["email"].error_messages["required"] = "Email manzilini kiriting."
+
+    def clean_username(self):
+        username = self.cleaned_data["username"]
+        if User.objects.filter(username__iexact=username).exclude(
+            pk=self.instance.pk
+        ).exists():
+            raise forms.ValidationError("Bu login band. Boshqa foydalanuvchi nomini tanlang.")
+        return username
+
     def clean_email(self):
         email=self.cleaned_data["email"].lower()
         if User.objects.filter(email__iexact=email).exists(): raise forms.ValidationError("Bu email ro‘yxatdan o‘tgan.")
