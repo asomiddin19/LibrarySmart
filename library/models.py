@@ -14,11 +14,12 @@ def cover_path(instance,filename):
     return f"covers/{uuid4().hex}.{filename.rsplit('.',1)[-1].lower()}"
 
 CATEGORIES=[
- ("Badiiy adabiyot","📚"),("O‘zbek adabiyoti","🌿"),("Jahon adabiyoti","🌍"),
+ ("O‘zbek adabiyoti","🇺🇿"),("Jahon adabiyoti","🌍"),("Bolalar adabiyoti","🧸"),
+ ("Badiiy adabiyot","📚"),
  ("Dasturlash","💻"),("Networking","🌐"),("Linux","🐧"),("Kiberxavfsizlik","🛡️"),
  ("Sun’iy intellekt","🤖"),("Matematika","∑"),("Fizika","⚛️"),("Tarix","🏛️"),
  ("Psixologiya","🧠"),("Biznes va iqtisod","📈"),("Tillar","🗣️"),
- ("Tibbiyot","🩺"),("Bolalar adabiyoti","🧸"),("Ilm-fan","🔬"),("Shaxsiy rivojlanish","✨")
+ ("Tibbiyot","🩺"),("Ilm-fan","🔬"),("Shaxsiy rivojlanish","✨")
 ]
 
 class Book(models.Model):
@@ -127,3 +128,15 @@ class AIMessage(models.Model):
 
     def __str__(self):
         return f"AI message {self.pk} for user {self.user_id}"
+
+
+class LoginEvent(models.Model):
+    """Successful sign-ins; no credentials, session IDs or IP addresses."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="login_events")
+    email_at_login = models.EmailField(blank=True)
+    device = models.CharField(max_length=50)
+    browser = models.CharField(max_length=50)
+    created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created"]
