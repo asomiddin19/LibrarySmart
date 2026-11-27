@@ -1,0 +1,72 @@
+name: Library Smart Android Install Packages
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/android-packages.yml'
+      - 'mobile/**'
+permissions:
+  contents: read
+jobs:
+  android-packages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.38.5'
+          cache: true
+      - name: Prepare Android project
+        run: |
+          flutter create --platforms android .
+          flutter pub get
+          flutter analyze --no-fatal-infos lib
+      - name: Build installable APK for production
+        run: flutter build apk --debug --dart-define=LIBRARY_API_BASE=https://librarysmart-production.up.railway.app
+      - name: Build Android App Bundle
+        run: flutter build appbundle --debug --dart-define=LIBRARY_API_BASE=https://librarysmart-production.up.railway.app
+      - name: Create valid universal .apks package with bundletool
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --silent --show-error \
+            https://github.com/google/bundletool/releases/download/1.18.2/bundletool-all-1.18.2.jar \
+            --output /tmp/bundletool.jar
+          test -s /tmp/bundletool.jar
+          mkdir -p "$HOME/.android"
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -v -keystore "$HOME/.android/debug.keystore" \
+              -alias androiddebugkey -storepass android -keypass android \
+              -dname 'CN=Android Debug,O=Android,C=US' -keyalg RSA -keysize 2048 -validity 10000
+          fi
+          java -jar /tmp/bundletool.jar build-apks \
+            --bundle=build/app/outputs/bundle/debug/app-debug.aab \
+            --output=build/app/outputs/bundle/debug/LibrarySmart-Android-latest.apks \
+            --mode=universal --overwrite \
+            --ks="$HOME/.android/debug.keystore" --ks-pass=pass:android \
+            --ks-key-alias=androiddebugkey --key-pass=pass:android
+          unzip -t build/app/outputs/bundle/debug/LibrarySmart-Android-latest.apks
+          unzip -l build/app/outputs/bundle/debug/LibrarySmart-Android-latest.apks | grep universal.apk
+      - name: Export latest Android installers
+        shell: bash
+        run: |
+          mkdir -p android-installers
+          cp build/app/outputs/flutter-apk/app-debug.apk android-installers/LibrarySmart-Android-latest.apk
+          cp build/app/outputs/bundle/debug/LibrarySmart-Android-latest.apks android-installers/LibrarySmart-Android-latest.apks
+          sha256sum android-installers/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LibrarySmart-Android-latest-APK-and-APKS
+          path: mobile/android-installers/*
+          retention-days: 7
+          if-no-files-found: error
