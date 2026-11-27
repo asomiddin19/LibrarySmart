@@ -27,3 +27,11 @@
 .upload-actions{padding:8px 0 0}
 @media(max-width:780px){.upload-format-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:540px){.upload-field-grid,.upload-format-grid{grid-template-columns:1fr}.upload-full{grid-column:auto}}
+
+/* Upload feedback */
+.upload-format-card:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px #2b8eb21c}
+.chosen-file{overflow-wrap:anywhere;min-height:18px;font-weight:600}
+.chosen-file:not(:empty){padding:7px 9px;border-radius:8px;background:#e9f6ef;color:#196a4e}
+.chosen-file.upload-error{background:#fff0f0;color:#ae2b31}
+.upload-client-error{padding:9px 12px;background:#fff0f0;border:1px solid #f0bdc2;border-radius:9px;align-self:center}
+.book-upload-panel button[disabled]{opacity:.75;cursor:wait}
