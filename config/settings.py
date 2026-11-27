@@ -11,6 +11,9 @@ if not SECRET_KEY:
         raise ImproperlyConfigured("DJANGO_SECRET_KEY required in production")
     SECRET_KEY = "django-insecure-local-development-only-library-smart"
 ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+# Railway deployment probes use this exact Host header; do not use wildcard hosts.
+if "healthcheck.railway.app" not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append("healthcheck.railway.app")
 INSTALLED_APPS = [
     "django.contrib.admin", "django.contrib.auth", "django.contrib.contenttypes",
     "django.contrib.sessions", "django.contrib.messages", "django.contrib.staticfiles", "library.apps.LibraryConfig",
@@ -56,6 +59,8 @@ SESSION_COOKIE_HTTPONLY=True
 CSRF_COOKIE_SECURE=not DEBUG
 SESSION_COOKIE_SECURE=not DEBUG
 SECURE_SSL_REDIRECT=not DEBUG
+# Railway healthchecks are internal HTTP; exempt only the readiness URL.
+SECURE_REDIRECT_EXEMPT = [r"^api/v1/health/$"]
 SECURE_CONTENT_TYPE_NOSNIFF=True
 X_FRAME_OPTIONS="DENY"
 RAILWAY_VOLUME = os.getenv("RAILWAY_VOLUME_MOUNT_PATH")
