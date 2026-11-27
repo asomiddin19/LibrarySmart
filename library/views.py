@@ -5,12 +5,13 @@ from django.core.exceptions import PermissionDenied
 from django.db.models import Avg,Count,Q,Sum,F
 from django.http import FileResponse,Http404,StreamingHttpResponse,HttpResponse
 import re
+import json
 from django.shortcuts import render,redirect,get_object_or_404
 from django.views.decorators.http import require_POST
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.db import transaction
 from django.core.paginator import Paginator
-from .models import Book,Reading,Review,AuditLog,CATEGORIES,LoginEvent
+from .models import Book,Reading,Review,AuditLog,CATEGORIES
 from .forms import BookForm,SignupForm,ReviewForm
 from .storage import enabled,service,DriveUnavailable
 
@@ -232,7 +233,15 @@ def signup(request):
 def readers(request):
     guard(request)
     readers_qs = User.objects.order_by("username").prefetch_related("groups")
-    recent_logins = LoginEvent.objects.select_related("user").order_by("-created")[:100]
+    recent_logins = []
+    for event in AuditLog.objects.filter(action="Muvaffaqiyatli kirish").select_related("actor")[:100]:
+        try:
+            metadata = json.loads(event.details)
+        except (TypeError, ValueError):
+            metadata = {}
+        recent_logins.append({"created":event.created,"username":event.actor.username if event.actor else "O‘chirilgan foydalanuvchi",
+                              "email":metadata.get("email",""),"device":metadata.get("device","Noma’lum"),
+                              "browser":metadata.get("browser","Noma’lum")})
     return render(request,"library/readers.html",ctx(request,readers=readers_qs,recent_logins=recent_logins))
 @login_required
 @require_POST
