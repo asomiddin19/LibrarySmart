@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Book,Reading,Review,AuditLog,LoginEvent
+from .models import Book,Reading,Review,AuditLog
 @admin.register(Book)
 class BookAdmin(admin.ModelAdmin):
     list_display=("title","author","category","published","pages","reads","downloads")
@@ -17,15 +17,4 @@ class AuditAdmin(admin.ModelAdmin):
     def has_add_permission(self,request): return False
     def has_delete_permission(self,request,obj=None): return False
 
-@admin.register(LoginEvent)
-class LoginEventAdmin(admin.ModelAdmin):
-    list_display = ("created", "user", "email_at_login", "device", "browser")
-    list_filter = ("device", "browser", "created")
-    search_fields = ("user__username", "user__email", "email_at_login")
-    readonly_fields = ("created", "user", "email_at_login", "device", "browser")
-    def has_add_permission(self, request):
-        return False
-    def has_change_permission(self, request, obj=None):
-        return False
-    def has_delete_permission(self, request, obj=None):
-        return False
+@admin.reg
