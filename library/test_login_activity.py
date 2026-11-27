@@ -1,7 +1,7 @@
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
-from .models import LoginEvent, CATEGORIES
+from .models import AuditLog, CATEGORIES
 from .login_activity import device_label, browser_label
 
 
@@ -19,16 +19,16 @@ class LoginDeviceAuditTests(TestCase):
             HTTP_USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0",
         )
         self.assertEqual(response.status_code, 302)
-        entry = LoginEvent.objects.get(user=self.reader)
-        self.assertEqual(entry.email_at_login, "reader@example.test")
-        self.assertEqual(entry.device, "Windows")
-        self.assertEqual(entry.browser, "Chrome")
+        entry = AuditLog.objects.get(actor=self.reader,action='Muvaffaqiyatli kirish')
+        self.assertIn('reader@example.test', entry.details)
+        self.assertIn('Windows', entry.details)
+        self.assertIn('Chrome', entry.details)
 
     def test_failed_login_does_not_log(self):
         self.client.post(reverse("login"),
                          {"username": "ordinary", "password": "incorrect"},
                          HTTP_USER_AGENT="Mozilla/5.0 (Android)")
-        self.assertEqual(LoginEvent.objects.count(), 0)
+        self.assertEqual(AuditLog.objects.filter(action='Muvaffaqiyatli kirish').count(), 0)
 
     def test_audit_only_for_staff(self):
         self.client.force_login(self.reader)
