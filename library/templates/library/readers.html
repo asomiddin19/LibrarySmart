@@ -5,8 +5,8 @@
     <thead><tr><th>Vaqt</th><th>Foydalanuvchi</th><th>Email</th><th>Qurilma</th><th>Brauzer</th></tr></thead>
     <tbody>{% for event in recent_logins %}<tr>
       <td>{{ event.created|date:"d.m.Y H:i" }}</td>
-      <td>{{ event.user.username }}</td>
-      <td>{{ event.email_at_login|default:"—" }}</td>
+      <td>{{ event.username }}</td>
+      <td>{{ event.email|default:"—" }}</td>
       <td>{{ event.device }}</td><td>{{ event.browser }}</td>
     </tr>{% empty %}<tr><td colspan="5">Hozircha qayd etilgan kirishlar yo‘q.</td></tr>{% endfor %}</tbody>
   </table></div>
