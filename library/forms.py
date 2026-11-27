@@ -84,7 +84,7 @@ class BookForm(forms.ModelForm):
             header = uploaded.read(min(uploaded.size, 1024))
             if b"%PDF-" not in header:
                 raise forms.ValidationError(
-                    "Bu fayl PDF emas. Faylni PDF formatida qayta saqlab yuklang."
+                    "PDF o‘qib bo‘lmaydi: fayl haqiqiy PDF emas. Uni PDF formatida qayta saqlab yuklang."
                 )
 
             uploaded.seek(0)
