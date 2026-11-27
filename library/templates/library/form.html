@@ -52,9 +52,25 @@
     </div></div>
     <p class="upload-hint">Faqat tarqatishga ruxsat berilgan kitoblarni yuklang.</p>
   {% else %}
-    {{ form.as_p }}
+    {% if form.non_field_errors %}<div class="upload-error" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="upload-section signup-fields">
+      <p class="upload-hint">Yangi hisob ochish uchun quyidagi ma’lumotlarni kiriting.</p>
+      {% for field in form %}
+        <div class="upload-field">
+          <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span aria-label="majburiy">*</span>{% endif %}</label>
+          {{ field }}
+          {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+          {% if field.errors %}<div class="upload-error" role="alert">{{ field.errors }}</div>{% endif %}
+        </div>
+      {% endfor %}
+    </div>
   {% endif %}
-  <div class="actions upload-actions"><button class="primary" id="save-book-button" type="submit">💾 Kitobni saqlash</button>
+  <div class="actions upload-actions">
+    {% if form.pdf %}
+      <button class="primary" id="save-book-button" type="submit">💾 Kitobni saqlash</button>
+    {% else %}
+      <button class="primary" type="submit">✓ Hisob yaratish</button>
+    {% endif %}
     {% if user.is_authenticated %}<a class="button" href="{% url 'dashboard' %}">Bekor qilish</a>
     {% else %}<a class="button" href="{% url 'login' %}">Kirish</a>{% endif %}
   </div></form>
