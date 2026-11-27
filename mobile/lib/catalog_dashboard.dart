@@ -24,6 +24,7 @@ class _CatalogDashboardState extends State<CatalogDashboard> {
   late Future<dynamic> books;
   late Future<dynamic> categoriesFuture;
   String category = '';
+  String format = 'all';
   int page = 1;
 
   @override
@@ -38,6 +39,7 @@ class _CatalogDashboardState extends State<CatalogDashboard> {
       'page': '$page',
       if (search.text.trim().isNotEmpty) 'q': search.text.trim(),
       if (category.isNotEmpty) 'category': category,
+      if (format != 'all') 'format': format,
     }).query;
     books = widget.api.request('books/?$query');
   }
@@ -47,6 +49,14 @@ class _CatalogDashboardState extends State<CatalogDashboard> {
   void chooseCategory(String value) {
     setState(() {
       category = value;
+      page = 1;
+      load();
+    });
+  }
+
+  void chooseFormat(String value) {
+    setState(() {
+      format = value;
       page = 1;
       load();
     });
@@ -137,9 +147,14 @@ class _CatalogDashboardState extends State<CatalogDashboard> {
               Expanded(child: ClipRRect(borderRadius: BorderRadius.circular(6),
                 child: LinearProgressIndicator(value: progress, minHeight: 5))),
               const SizedBox(width: 8),
-              Icon(book['has_epub'] == true ? Icons.menu_book_rounded
-                : Icons.picture_as_pdf_rounded, size: 17,
-                color: theme.colorScheme.secondary),
+              if (book['has_pdf'] == true)
+                const Icon(Icons.picture_as_pdf_rounded, size: 17, color: Colors.redAccent),
+              if (book['has_epub'] == true)
+                const Padding(padding: EdgeInsets.only(left: 5),
+                  child: Icon(Icons.menu_book_rounded, size: 17, color: Colors.teal)),
+              if (book['has_audio'] == true)
+                const Padding(padding: EdgeInsets.only(left: 5),
+                  child: Icon(Icons.headphones_rounded, size: 17, color: Colors.deepPurple)),
             ])),
         ]),
       ),
@@ -170,7 +185,7 @@ class _CatalogDashboardState extends State<CatalogDashboard> {
           style: TextStyle(color: Colors.white,
             fontSize: 25, fontWeight: FontWeight.w800)),
         const SizedBox(height: 7),
-        Text('$count ta elektron kitob · PDF va EPUB',
+        Text('$count ta elektron kitob · PDF, EPUB va audio',
           style: const TextStyle(color: Color(0xFFD7EAF6), fontSize: 13)),
         const SizedBox(height: 16),
         Wrap(spacing: 9, runSpacing: 8, children: [
@@ -294,6 +309,27 @@ class _CatalogDashboardState extends State<CatalogDashboard> {
                         onTap: () => openBook(currentBook),
                       ),
                     )),
+                Padding(padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
+                  child: Text('Kitob turlari',
+                    style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800))),
+                SizedBox(height: 54,
+                  child: ListView(scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    children: [
+                      for (final option in const [
+                        ('all', 'Barchasi', Icons.library_books_outlined),
+                        ('pdf', 'PDF', Icons.picture_as_pdf_rounded),
+                        ('epub', 'EPUB', Icons.menu_book_rounded),
+                        ('audio', 'Audio', Icons.headphones_rounded),
+                      ])
+                        Padding(padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: ChoiceChip(
+                            avatar: Icon(option.$3, size: 18),
+                            label: Text(option.$2),
+                            selected: format == option.$1,
+                            onSelected: (_) => chooseFormat(option.$1),
+                          )),
+                    ])),
                 Padding(padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   child: Text('Kategoriyalar',
                     style: theme.textTheme.titleLarge?.copyWith(
