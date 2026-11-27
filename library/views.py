@@ -10,7 +10,7 @@ from django.views.decorators.http import require_POST
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.db import transaction
 from django.core.paginator import Paginator
-from .models import Book,Reading,Review,AuditLog,CATEGORIES
+from .models import Book,Reading,Review,AuditLog,CATEGORIES,LoginEvent
 from .forms import BookForm,SignupForm,ReviewForm
 from .storage import enabled,service,DriveUnavailable
 
@@ -230,7 +230,10 @@ def signup(request):
     return render(request,"library/form.html",ctx(request,form=form,title="Ro‘yxatdan o‘tish"))
 @login_required
 def readers(request):
-    guard(request);return render(request,"library/readers.html",ctx(request,readers=User.objects.order_by("username").prefetch_related("groups")))
+    guard(request)
+    readers_qs = User.objects.order_by("username").prefetch_related("groups")
+    recent_logins = LoginEvent.objects.select_related("user").order_by("-created")[:100]
+    return render(request,"library/readers.html",ctx(request,readers=readers_qs,recent_logins=recent_logins))
 @login_required
 @require_POST
 def set_role(request,pk):
