@@ -130,13 +130,3 @@ class AIMessage(models.Model):
         return f"AI message {self.pk} for user {self.user_id}"
 
 
-class LoginEvent(models.Model):
-    """Successful sign-ins; no credentials, session IDs or IP addresses."""
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="login_events")
-    email_at_login = models.EmailField(blank=True)
-    device = models.CharField(max_length=50)
-    browser = models.CharField(max_length=50)
-    created = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-created"]
