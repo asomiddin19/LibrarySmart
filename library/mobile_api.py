@@ -201,6 +201,11 @@ def books(request):
     qs = visible(request.user).order_by("-created")
     search = request.GET.get("q", "").strip()[:100]
     category = request.GET.get("category", "").strip()[:100]
+    book_format = request.GET.get("format", "all").strip().lower()
+    if book_format not in ("all", "pdf", "epub", "audio"):
+        return fail("Kitob formati noto‘g‘ri.")
+    if book_format != "all":
+        qs = qs.exclude(**{book_format: ""})
     if search:
         qs = qs.filter(Q(title__icontains=search) | Q(author__icontains=search) |
                        Q(description__icontains=search))
