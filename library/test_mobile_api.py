@@ -126,6 +126,34 @@ class MobileApiTests(TestCase):
         self.assertEqual(response.json()['count'], 1)
         self.assertEqual(response.json()['results'][0]['title'], 'Linux')
 
+    def test_three_book_formats_and_category_filters(self):
+        from django.core.files.base import ContentFile
+        pdf_book = Book.objects.create(
+            title='O‘zbek hikoyalari', author='Muallif',
+            category='O‘zbek adabiyoti', description='PDF kitob', published=True)
+        pdf_book.pdf.save('book.pdf', ContentFile(b'%PDF-1.4 test'), save=True)
+        epub_book = Book.objects.create(
+            title='Jahon asarlari', author='Muallif',
+            category='Jahon adabiyoti', description='EPUB kitob', published=True)
+        epub_book.epub.save('book.epub', ContentFile(b'PK test'), save=True)
+        audio_book = Book.objects.create(
+            title='Bolalar ertaklari', author='Muallif',
+            category='Bolalar adabiyoti', description='Audio kitob', published=True)
+        audio_book.audio.save('book.mp3', ContentFile(b'ID3 test'), save=True)
+        for book_format, expected in [
+            ('pdf', pdf_book.pk), ('epub', epub_book.pk), ('audio', audio_book.pk),
+        ]:
+            response = self.client.get('/api/v1/books/', {'format': book_format})
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(
+                [item['id'] for item in response.json()['results']], [expected])
+        category_response = self.client.get('/api/v1/books/', {
+            'category': 'Bolalar adabiyoti', 'format': 'audio'})
+        self.assertEqual(category_response.json()['count'], 1)
+        self.assertEqual(category_response.json()['results'][0]['id'], audio_book.pk)
+        invalid = self.client.get('/api/v1/books/', {'format': 'exe'})
+        self.assertEqual(invalid.status_code, 400)
+
     def test_categories_are_private(self):
         self.client.logout()
         self.assertEqual(self.client.get('/api/v1/categories/').status_code, 401)
