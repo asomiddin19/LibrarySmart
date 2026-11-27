@@ -1,1 +1,58 @@
-{% extends 'library/base.html' %}{% block title %}{{ title }}{% endblock %}{% block content %}<section class="panel formpanel"><h1>{{ title }}</h1><form method="post" enctype="multipart/form-data">{% csrf_token %}{{ form.as_p }}{% if form.pdf %}<p>Tarqatishga ruxsat etilgan PDF, EPUB yoki audiokitob fayllarini yuklang. Kitobni adabiyot katalogiga joylang.</p>{% endif %}<div class="actions"><button class="primary" type="submit">Saqlash</button>{% if user.is_authenticated %}<a class="button" href="{% url 'dashboard' %}">Bekor qilish</a>{% else %}<a class="button" href="{% url 'login' %}">Kirish</a>{% endif %}</div></form></section>{% endblock %}
+{% extends 'library/base.html' %}{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<section class="panel formpanel {% if form.pdf %}book-upload-panel{% endif %}">
+  <div class="heading"><div><h1>{{ title }}</h1>
+  {% if form.pdf %}<p>Kitob ma’lumotlarini kiriting, katalogni tanlang va PDF, EPUB yoki audio fayl yuklang.</p>{% endif %}
+  </div></div>
+  <form method="post" enctype="multipart/form-data">{% csrf_token %}
+  {% if form.pdf %}
+    {% if form.non_field_errors %}<div class="upload-error" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="upload-section"><h2>📚 Kitob haqida</h2><div class="upload-field-grid">
+      {% for field in form %}
+      {% if field.name == "title" or field.name == "author" or field.name == "category" or field.name == "language" or field.name == "year" or field.name == "isbn" or field.name == "description" %}
+      <div class="upload-field {% if field.name == 'description' %}upload-full{% endif %}">
+        <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span aria-label="majburiy">*</span>{% endif %}</label>
+        {{ field }}
+        {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+        {% if field.errors %}<div class="upload-error" role="alert">{{ field.errors }}</div>{% endif %}
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div></div>
+    <div class="upload-section"><h2>📂 Kitob fayllari</h2>
+      <p class="upload-hint">Kamida bitta format yuklang. Bitta kitobga bir nechta formatni ham biriktirish mumkin.</p>
+      <div class="upload-format-grid">
+      {% for field in form %}
+        {% if field.name == "pdf" or field.name == "epub" or field.name == "audio" %}
+        <div class="upload-format-card">
+          <span class="upload-format-icon" aria-hidden="true">{% if field.name == "pdf" %}📄{% elif field.name == "epub" %}📖{% else %}🎧{% endif %}</span>
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          <small>{% if field.name == "pdf" %}50 MB gacha{% elif field.name == "epub" %}50 MB gacha{% else %}150 MB gacha{% endif %}</small>
+          {{ field }}
+          {% if field.errors %}<div class="upload-error" role="alert">{{ field.errors }}</div>{% endif %}
+          {% if field.value %}<small>Joriy fayl: {{ field.value }}</small>{% endif %}
+        </div>
+        {% endif %}
+      {% endfor %}
+      </div>
+    </div>
+    <div class="upload-section"><h2>🖼️ Muqova va nashr</h2><div class="upload-field-grid">
+      {% for field in form %}
+        {% if field.name == "cover" or field.name == "published" %}
+        <div class="upload-field">
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}
+          {% if field.name == "cover" %}<small>JPG, PNG yoki WEBP, 5 MB gacha.</small>{% endif %}
+          {% if field.errors %}<div class="upload-error" role="alert">{{ field.errors }}</div>{% endif %}
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div></div>
+    <p class="upload-hint">Faqat tarqatishga ruxsat berilgan kitoblarni yuklang.</p>
+  {% else %}
+    {{ form.as_p }}
+  {% endif %}
+  <div class="actions upload-actions"><button class="primary" type="submit">💾 Saqlash</button>
+    {% if user.is_authenticated %}<a class="button" href="{% url 'dashboard' %}">Bekor qilish</a>
+    {% else %}<a class="button" href="{% url 'login' %}">Kirish</a>{% endif %}
+  </div></form>
+</section>{% endblock %}
