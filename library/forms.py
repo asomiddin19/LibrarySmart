@@ -2,6 +2,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from pypdf import PdfReader
+import pypdfium2 as pdfium
 from .models import Book,Review,CATEGORIES
 from mutagen import File as AudioFile
 from zipfile import ZipFile, BadZipFile
@@ -10,7 +11,7 @@ class BookForm(forms.ModelForm):
     class Meta:
         model=Book
         fields=["title","author","category","language","year","isbn","description","cover","pdf","epub","audio","published"]
-        widgets={"description":forms.Textarea(attrs={"rows":4}),"pdf":forms.FileInput(attrs={"accept":"application/pdf,.pdf"}),"audio":forms.FileInput(attrs={"accept":".mp3,.wav,.m4a,.ogg"})}
+        widgets={"description":forms.Textarea(attrs={"rows":4}),"pdf":forms.FileInput(attrs={"accept":".pdf,application/pdf"}),"epub":forms.FileInput(attrs={"accept":".epub,application/epub+zip"}),"audio":forms.FileInput(attrs={"accept":".mp3,.wav,.m4a,.ogg"})}
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
         choices=[(c,c) for c,_ in CATEGORIES]
@@ -66,21 +67,61 @@ class BookForm(forms.ModelForm):
         return uploaded
 
     def clean_pdf(self):
-        uploaded=self.files.get("pdf")
-        if not uploaded: return self.cleaned_data.get("pdf")
-        if uploaded.size>50*1024*1024 or not uploaded.name.lower().endswith(".pdf"):
-            raise forms.ValidationError("Faqat 50 MB gacha bo‘lgan PDF fayl yuklang.")
+        uploaded = self.files.get("pdf")
+        if not uploaded:
+            return self.cleaned_data.get("pdf")
+        if not uploaded.name.lower().endswith(".pdf"):
+            raise forms.ValidationError("PDF formatidagi (.pdf) faylni tanlang.")
+        if uploaded.size == 0:
+            raise forms.ValidationError("Fayl bo‘sh. Boshqa PDF tanlang.")
+        if uploaded.size > 50 * 1024 * 1024:
+            raise forms.ValidationError("PDF 50 MB dan katta. Faylni kichraytirib qayta yuklang.")
+
         try:
-            if uploaded.read(5)!=b"%PDF-": raise ValueError()
+            # Valid PDFs may contain a short preamble before their %PDF- header.
+            # Reject arbitrary data, but allow those standard-compliant files.
             uploaded.seek(0)
-            reader=PdfReader(uploaded,strict=False)
-            if reader.is_encrypted: raise ValueError()
-            self.page_count=len(reader.pages)
-            if not 1<=self.page_count<=10000: raise ValueError()
-        except Exception:
-            raise forms.ValidationError("PDF o‘qib bo‘lmaydi, parollangan yoki buzilgan.")
-        finally: uploaded.seek(0)
+            header = uploaded.read(min(uploaded.size, 1024))
+            if b"%PDF-" not in header:
+                raise forms.ValidationError(
+                    "Bu fayl PDF emas. Faylni PDF formatida qayta saqlab yuklang."
+                )
+
+            uploaded.seek(0)
+            try:
+                reader = PdfReader(uploaded, strict=False)
+                if reader.is_encrypted:
+                    raise forms.ValidationError(
+                        "PDF parollangan. Parolsiz nusxasini yuklang."
+                    )
+                count = len(reader.pages)
+            except forms.ValidationError:
+                raise
+            except Exception:
+                # Some valid PDFs have unusual cross-reference tables and
+                # render in browsers but pypdf cannot count their pages.
+                # PDFium provides an independent parser; it MUST also
+                # recognize a real document before we accept the upload.
+                uploaded.seek(0)
+                try:
+                    with pdfium.PdfDocument(uploaded.read()) as document:
+                        count = len(document)
+                except Exception:
+                    raise forms.ValidationError(
+                        "PDF ochilmadi. Fayl shikastlangan yoki parollangan bo‘lishi "
+                        "mumkin. Brauzerda ochib, «Print → Save as PDF» orqali "
+                        "yangidan saqlang va qayta yuklang."
+                    )
+
+            if count < 1 or count > 10000:
+                raise forms.ValidationError(
+                    "PDF sahifalari soni 1 dan 10 000 gacha bo‘lishi kerak."
+                )
+            self.page_count = count
+        finally:
+            uploaded.seek(0)
         return uploaded
+
     def save(self,commit=True):
         obj=super().save(commit=False)
         if self.files.get("pdf"):
