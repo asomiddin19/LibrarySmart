@@ -40,6 +40,7 @@ def catalog(request):
     mode=request.GET.get("format","all")
     if mode=="audio": books=books.exclude(audio="")
     elif mode=="pdf": books=books.exclude(pdf="")
+    elif mode=="epub": books=books.exclude(epub="")
     books=books.order_by({"popular":"-reads","title":"title","rating":"-rating"}.get(sort,"-created"))
     page=Paginator(books,18).get_page(request.GET.get("page"))
     return render(request,"library/catalog.html",ctx(request,books=page,page=page,query=q,category=category,sort=sort,mode=mode,categories=all_books.order_by("category").values_list("category",flat=True).distinct()))
