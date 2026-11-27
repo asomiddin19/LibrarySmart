@@ -14,11 +14,12 @@ def cover_path(instance,filename):
     return f"covers/{uuid4().hex}.{filename.rsplit('.',1)[-1].lower()}"
 
 CATEGORIES=[
- ("Badiiy adabiyot","📚"),("O‘zbek adabiyoti","🌿"),("Jahon adabiyoti","🌍"),
+ ("O‘zbek adabiyoti","🇺🇿"),("Jahon adabiyoti","🌍"),("Bolalar adabiyoti","🧸"),
+ ("Badiiy adabiyot","📚"),
  ("Dasturlash","💻"),("Networking","🌐"),("Linux","🐧"),("Kiberxavfsizlik","🛡️"),
  ("Sun’iy intellekt","🤖"),("Matematika","∑"),("Fizika","⚛️"),("Tarix","🏛️"),
  ("Psixologiya","🧠"),("Biznes va iqtisod","📈"),("Tillar","🗣️"),
- ("Tibbiyot","🩺"),("Bolalar adabiyoti","🧸"),("Ilm-fan","🔬"),("Shaxsiy rivojlanish","✨")
+ ("Tibbiyot","🩺"),("Ilm-fan","🔬"),("Shaxsiy rivojlanish","✨")
 ]
 
 class Book(models.Model):
